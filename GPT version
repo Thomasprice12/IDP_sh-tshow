@@ -1,0 +1,176 @@
+from machine import Pin, PWM
+from utime import sleep, ticks_ms, ticks_diff
+
+# --- Motor class (unchanged) ---
+class Motor:
+    def __init__(self, dirPin, PWMPin):
+        self.mDir = Pin(dirPin, Pin.OUT)
+        self.pwm = PWM(Pin(PWMPin))
+        self.pwm.freq(1000)
+        self.pwm.duty_u16(0)
+
+    def off(self):
+        self.pwm.duty_u16(0)
+
+    def Forward(self, speed=100):
+        self.mDir.value(0)
+        self.pwm.duty_u16(int(65535 * speed / 100))
+
+    def Reverse(self, speed=100):
+        self.mDir.value(1)
+        self.pwm.duty_u16(int(65535 * speed / 100))
+
+
+# --- Setup motors & sensors (unchanged pins) ---
+left_motor = Motor(4, 5)
+right_motor = Motor(7, 6)
+
+left_sensor = Pin(8, Pin.IN)
+right_sensor = Pin(9, Pin.IN)
+front_sensor = Pin(10, Pin.IN)
+
+# --- Robust detection params (tune these) ---
+MIN_TIME_BETWEEN_JUNCTIONS = 700   # ms cooldown after a confirmed junction
+STABLE_THRESHOLD = 5               # number of identical readings required
+LOOP_DELAY = 0.05                  # main loop sleep (seconds)
+
+# --- State vars ---
+junction = 0
+last_junction_time = ticks_ms()
+last_pattern = (0, 0, 0)
+stable_count = 0
+
+# --- Movement helper functions (same style as you used) ---
+def turn_right():
+    left_motor.Forward(100)
+    right_motor.Reverse(50)
+
+def turn_left():
+    right_motor.Forward(100)
+    left_motor.Reverse(50)
+
+def go_forward_slow():
+    left_motor.Forward(40)
+    right_motor.Forward(40)
+
+def go_forward_mid():
+    left_motor.Forward(50)
+    right_motor.Forward(50)
+
+# --- Main loop ---
+while True:
+    left_val = left_sensor.value()
+    right_val = right_sensor.value()
+    front_val = front_sensor.value()
+    current_pattern = (left_val, right_val, front_val)
+
+    # Debug: print current readings
+    print("Sensors:", current_pattern, "Junction:", junction)
+
+    # --- Simple line-following (unchanged behavior) ---
+    if left_val == 1 and right_val == 0 and front_val == 0:
+        right_motor.Forward(100)
+        left_motor.Reverse(50)
+    elif right_val == 1 and left_val == 0 and front_val == 0:
+        left_motor.Forward(100)
+        right_motor.Reverse(50)
+    elif left_val == 0 and right_val == 0:
+        left_motor.Forward(40)
+        right_motor.Forward(40)
+    else:
+        # fallback: a mild forward so robot keeps moving if pattern ambiguous
+        left_motor.Forward(50)
+        right_motor.Forward(50)
+
+    # --- Stability / debounce logic ---
+    if current_pattern == last_pattern:
+        stable_count += 1
+    else:
+        stable_count = 0
+        last_pattern = current_pattern
+
+    # Only consider a junction if pattern is stable long enough
+    if stable_count >= STABLE_THRESHOLD:
+        now = ticks_ms()
+        time_since_last = ticks_diff(now, last_junction_time)
+
+        # require cooldown and at least two sensors seeing the line to be treated as junction
+        if time_since_last > MIN_TIME_BETWEEN_JUNCTIONS and (left_val + right_val + front_val) >= 2:
+            # reset stability so we don't re-detect the same junction immediately
+            stable_count = 0
+            last_junction_time = now
+
+            # --- Your junction handling (kept in same sequence) ---
+            if left_val == 1 and right_val == 1 and front_val == 1 and junction == 0:
+                junction += 1
+                print(">>> Junction 1 detected → go straight")
+                left_motor.Forward(50)
+                right_motor.Forward(50)
+                sleep(0.5)
+
+            elif left_val == 1 and right_val == 1 and front_val == 0 and junction == 1:
+                junction += 1
+                print(">>> Junction 2 detected → turn RIGHT")
+                left_motor.Forward(100)
+                right_motor.Reverse(50)
+                sleep(0.5)
+
+            elif left_val == 1 and right_val == 1 and front_val == 0 and junction == 2:
+                junction += 1
+                print(">>> Junction 3 detected → turn LEFT")
+                right_motor.Forward(100)
+                left_motor.Reverse(50)
+                sleep(0.5)
+
+            elif left_val == 1 and right_val == 1 and front_val == 1 and junction == 3:
+                junction += 1
+                print(">>> Junction 4 detected → straight")
+                right_motor.Forward(50)
+                left_motor.Forward(50)
+                sleep(0.5)
+                
+            elif left_val == 1 and right_val == 0 and front_val == 0 and junction == 4:
+                junction += 1
+                print(">>> Junction 5 detected → go left")
+                right_motor.Forward(50)
+                left_motor.Forward(50)
+                sleep(0.65)
+
+
+
+            elif left_val == 1 and right_val == 0 and front_val == 1 and junction == 5:
+                junction += 1
+                print(">>> Junction 6 detected → go straight")
+                right_motor.Forward(50)
+                left_motor.Forward(50)
+                sleep(0.65)
+
+            elif left_val == 1 and right_val == 1 and front_val == 1 and junction == 5:
+                junction += 1
+                print(">>> Junction 6 detected → go straight")
+                right_motor.Forward(50)
+                left_motor.Forward(50)
+                sleep(2)
+
+            elif left_val == 1 and right_val == 0 and front_val == 1 and junction == 6:
+                junction += 1
+                print(">>> Junction 7 detected → go left")
+                right_motor.Forward(150)
+                left_motor.Reverse(80)
+                sleep(0.65)
+
+            elif left_val == 0 and right_val == 1 and front_val == 1 and junction == 7:
+                junction += 1
+                print(">>> Junction 8 detected → Turn right")
+                right_motor.Reverse(50)
+                left_motor.Forward(50)
+                sleep(0.65)
+
+            else:
+                # If pattern matches >=2 sensors but no expected junction for current index,
+                # treat as ignored/no-op (helps avoid wrong increments)
+                print("Pattern looks like junction but no matching junction action for index", junction)
+
+    # small loop delay to control stable_count timing
+    sleep(LOOP_DELAY)
+
