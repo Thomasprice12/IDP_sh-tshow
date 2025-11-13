@@ -33,6 +33,16 @@ junction = 0
 last_junction_time = ticks_ms()
 last_pattern = (0, 0, 0)
 
+def turn_right():
+    left_motor.Forward(100)
+    right_motor.Reverse(50)
+def turn_left():
+    right_motor.Forward(100)
+    left_motor.Reverse(50) 
+def go_forward():
+    left_motor.Forward(50)
+    right_motor.Forward(50)
+
 while True:
     left_val = left_sensor.value()
     right_val = right_sensor.value()
@@ -44,17 +54,13 @@ while True:
 
     # Update motors for normal line following
     if left_val == 1 and right_val == 0 and front_val ==0:
-        right_motor.Forward(100)
-        left_motor.Reverse(50)
+        turn_left()
     elif right_val == 1 and left_val == 0 and front_val == 0:
-        left_motor.Forward(100)
-        right_motor.Reverse(50)
+        turn_right()
+       
     elif left_val == 0 and right_val == 0:
-        left_motor.Forward(50)
-        right_motor.Forward(50)
-    else:
-        left_motor.Forward(50)
-        right_motor.Forward(50)
+        go_forward()
+    
 
     # Detect junction *only* when pattern CHANGES
     if current_pattern != last_pattern:
@@ -79,7 +85,7 @@ while True:
             right_motor.Reverse(50)
             sleep(0.5)
             
-        #junction 3: 1 1 0 patter
+        #junction 3: 1 1 0 pattern
         elif left_val == 1 and right_val == 1 and front_val == 0 and junction == 2:
             junction += 1
             last_junction_time = current_time
