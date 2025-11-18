@@ -29,3 +29,41 @@ s1 = Pin(8,  Pin.IN)   # leftmost
 s2 = Pin(9,  Pin.IN)
 s3 = Pin(10, Pin.IN)
 s4 = Pin(11, Pin.IN)   # rightmost
+
+
+
+
+
+def go_straight(speed=FORWARD_SPEED):
+    left_motor.Forward(speed)
+    right_motor.Forward(speed)
+
+def stop():
+    left_motor.off()
+    right_motor.off()
+
+
+def turn_left_90():
+    left_motor.Reverse(TURN_SPEED)
+    right_motor.Forward(TURN_SPEED)
+    sleep(TURN_TIME_90)
+    stop()
+    sleep(0.05)
+
+def turn_right_90():
+    left_motor.Forward(TURN_SPEED)
+    right_motor.Reverse(TURN_SPEED)
+    sleep(TURN_TIME_90)
+    stop()
+    sleep(0.05)
+
+def uturn():
+    turn_left_90()
+    sleep(0.05)
+    turn_left_90()
+
+def read():
+    return (s1.value(), s2.value(), s3.value(), s4.value())
+
+
+# ---------------- Line Follow ----------------
