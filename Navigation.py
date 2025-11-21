@@ -1,9 +1,66 @@
+
+
+         
 from machine import Pin, PWM
 from utime import sleep, ticks_ms, ticks_diff
+from machine import Pin, I2C
+from libs.VL53L0X.VL53L0X import VL53L0X
+from utime import sleep
 
+
+'''PRANOY: below is code for the distance sensor. The idea is that the sensor will be, default, off. However, when the robot reaches one of the spurs we turn it on 
+using th sensor_on() function. Then, the robot will turn on the spot and measure the distance. If the distance measured < 400mm there is a box. Otherwise the robot will turn to the
+right and carry onto the next spur. We will turn off the sensor using the function sensor_off()'''
+# Global variables
+sensor = None
+sensor_running = False
+
+
+def sensor_on():
+    global sensor, sensor_running
+
+    print("Sensor ON")
+    sensor_running = True
+
+    # Setup sensor if not created yet
+    if sensor is None:
+        i2c = I2C(0, sda=Pin(20), scl=Pin(21))
+        sensor = VL53L0X(i2c)
+
+    # Start measuring
+    sensor.start()
+    THRESHOLD = 400  # 40 cm
+
+    # ------------- MAIN SENSOR LOOP -------------
+    while sensor_running:
+        distance = sensor.read()
+
+        if distance > 0:
+            print("Distance:", distance, "mm")
+
+            if distance < THRESHOLD:
+                print("** BOX DETECTED → initiating procedure **")
+                handle_spur()     # Call your special routine
+                sensor_off()      # Stop sensor automatically
+                break
+
+        sleep(0.2)
+
+    # When loop stops, stop sensor
+    sensor.stop()
+    print("Sensor OFF (stopped from loop)")
+
+
+def sensor_off():
+    """Tell the loop to stop."""
+    global sensor_running
+    print("Turning sensor OFF request")
+    sensor_running = False
 # ============================
 #   MOTOR CLASS
 # ============================
+
+
 class Motor:
     def __init__(self, dirPin, PWMPin):
         self.mDir = Pin(dirPin, Pin.OUT)
@@ -29,7 +86,8 @@ class Motor:
         speed = max(0, min(speed, 100))
         self.mDir.value(1)
         self.pwm.duty_u16(int(65535 * speed / 100))
-
+        
+        
 
 # ============================
 #   SETUP
@@ -41,6 +99,8 @@ s1 = Pin(8, Pin.IN)
 s2 = Pin(9, Pin.IN)
 s3 = Pin(10, Pin.IN)
 s4 = Pin(11, Pin.IN)
+motor_status_pin = 
+'''Current GPIO PINS: 11,12,13,14,18,19,20,21,'''
 
 junction = 0
 last_pattern = (0,0,0,0)
@@ -135,6 +195,34 @@ def forward_start(pattern, now):
         sleep(0.5)
         stable_count = 0
         return
+    # ——— JUNCTIONS 5 → 11 ———
+    if pattern == (1,1,0,0) and junction >= 4 and junction < 11:
+        junction += 1
+        last_junction_time = now
+        print(f">>> Junction {junction}")
+        stable_count = 0
+        
+        return
+
+def handle_spur():
+    '''Turns left into spur'''
+    left_motor.Forward(40)
+    right_motor.Forward(70)
+    sleep(0.5)
+    left_motor.Forward(40)
+    right_motor.Forward(40)
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # ============================
@@ -180,43 +268,6 @@ while True:
 
 
 
-def set1(pattern):
-    """
-    explored = 1
-    unexplored = 0
-    """
-    Gay_seeker = [0, 0, 0, 0, 0, 0]   # 6 spur states
-
-    for x in range(6):  
-        while True:
-
-            # -------- SPUR DETECTED ON THE LEFT --------
-            if pattern == (1,1,0,0) and Gay_seeker[x] == 0:
-
-                # rotate right to enter spur
-                right_motor.Forward(70)
-                left_motor.Reverse(40)
-                
-                # mark spur as explored
-                Gay_seeker[x] = 1   
-
-                # ----- PICKUP CHECK -----
-                # if box present, pick up box
-                # if no box, ignore and exit spur
-                # (your code here)
-
-                # TURN AROUND (placeholder)
-                turn_around()
-
-                # If box → return to main path the way we came
-                # If not → carry on to next junction
-                # (your code here)
-
-                break   # exit while True for this spur
-
-            # No matching spur → break and move to next
-            else:
-                break
 
 
       
@@ -272,6 +323,7 @@ def set1(pattern):
 
          
 
+         
          
         
        
