@@ -198,6 +198,8 @@ def forward_start(pattern, now):
     # ——— JUNCTIONS 5 → 11 ———
     if pattern == (1,1,0,0) and junction >= 4 and junction < 11:
         junction += 1
+        sensor_on() 
+        wh
         last_junction_time = now
         print(f">>> Junction {junction}")
         stable_count = 0
@@ -206,7 +208,7 @@ def forward_start(pattern, now):
 
 def handle_spur():
     '''Turns left into spur'''
-    left_motor.Forward(40)
+    left_motor.Reverse(70)
     right_motor.Forward(70)
     sleep(0.5)
     left_motor.Forward(40)
@@ -322,8 +324,10 @@ while True:
 
 
          
+#when it's at a spur:
 
-         
+if pattern == (1,1,0,0):
+         sesnsor_on()
          
         
        
