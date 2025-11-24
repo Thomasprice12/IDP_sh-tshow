@@ -145,7 +145,7 @@ def follow_line(pattern):
 # ============================
 #   JUNCTION ROUTE
 # ============================
-def forward_start(pattern, now):
+def forward_start():
     global junction, last_junction_time, stable_count
 
     # Skip junction if timing gap not reached
@@ -199,7 +199,6 @@ def forward_start(pattern, now):
     if pattern == (1,1,0,0) and junction >= 4 and junction < 11:
         junction += 1
         sensor_on() 
-        wh
         last_junction_time = now
         print(f">>> Junction {junction}")
         stable_count = 0
@@ -213,6 +212,9 @@ def handle_spur():
     sleep(0.5)
     left_motor.Forward(40)
     right_motor.Forward(40)
+    sleep(0.5)
+    
+
 
 
 
@@ -258,6 +260,12 @@ while True:
         forward_start(pattern, now)
 
     sleep(0.05)
+
+
+    forward_start()
+         
+
+
 
 
 
