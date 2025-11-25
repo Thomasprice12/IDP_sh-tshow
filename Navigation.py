@@ -1,20 +1,44 @@
-
-
-         
-from machine import Pin, PWM
+from machine import Pin, PWM, I2C
 from utime import sleep, ticks_ms, ticks_diff
-from machine import Pin, I2C
 from libs.VL53L0X.VL53L0X import VL53L0X
-from utime import sleep
 
 
-'''PRANOY: below is code for the distance sensor. The idea is that the sensor will be, default, off. However, when the robot reaches one of the spurs we turn it on 
-using th sensor_on() function. Then, the robot will turn on the spot and measure the distance. If the distance measured < 400mm there is a box. Otherwise the robot will turn to the
-right and carry onto the next spur. We will turn off the sensor using the function sensor_off()'''
-# Global variables
+# ============================================================
+#   ACTUATOR CLASS
+# ============================================================
+
+class Actuator:
+    def __init__(self, dirPin, PWMPin):
+        self.mDir = Pin(dirPin, Pin.OUT)
+        self.pwm = PWM(Pin(PWMPin))
+        self.pwm.freq(1000)
+        self.pwm.duty_u16(0)
+
+    def set(self, dir, speed):
+        """dir: 0 = extend, 1 = retract, speed: 0–100"""
+        self.mDir.value(dir)
+        speed = max(0, min(speed, 100))
+        self.pwm.duty_u16(int(65535 * speed / 100))
+
+
+# ============================================================
+#   GLOBAL STATE
+# ============================================================
+
 sensor = None
 sensor_running = False
+junction = 0
+last_pattern = (0, 0, 0, 0)
+stable_count = 0
+REQUIRED_STABLE = 2
+last_junction_time = ticks_ms()
 
+JUNCTION_GAPS = [0, 1500, 1500, 1500]
+
+
+# ============================================================
+#   SENSOR MANAGER (VL53L0X)
+# ============================================================
 
 def sensor_on():
     global sensor, sensor_running
@@ -22,16 +46,13 @@ def sensor_on():
     print("Sensor ON")
     sensor_running = True
 
-    # Setup sensor if not created yet
     if sensor is None:
         i2c = I2C(0, sda=Pin(20), scl=Pin(21))
         sensor = VL53L0X(i2c)
 
-    # Start measuring
     sensor.start()
-    THRESHOLD = 400  # 40 cm
+    THRESHOLD = 400  # mm
 
-    # ------------- MAIN SENSOR LOOP -------------
     while sensor_running:
         distance = sensor.read()
 
@@ -39,43 +60,36 @@ def sensor_on():
             print("Distance:", distance, "mm")
 
             if distance < THRESHOLD:
-                print("** BOX DETECTED → initiating procedure **")
-                handle_spur()     # Call your special routine
-                sensor_off()      # Stop sensor automatically
+                print("** BOX DETECTED — Performing spur routine **")
+                handle_spur()
+                sensor_off()
                 break
 
         sleep(0.2)
 
-    # When loop stops, stop sensor
     sensor.stop()
-    print("Sensor OFF (stopped from loop)")
+    print("Sensor OFF")
 
 
 def sensor_off():
-    """Tell the loop to stop."""
     global sensor_running
-    print("Turning sensor OFF request")
+    print("Stopping sensor…")
     sensor_running = False
-# ============================
-#   MOTOR CLASS
-# ============================
 
+
+# ============================================================
+#   MOTOR CLASS
+# ============================================================
 
 class Motor:
     def __init__(self, dirPin, PWMPin):
         self.mDir = Pin(dirPin, Pin.OUT)
         self.pwm = PWM(Pin(PWMPin))
         self.pwm.freq(1000)
-        self.pwm.duty_u16(0)
+        self.off()
 
     def off(self):
         self.pwm.duty_u16(0)
-      
-    def turn_around():
-        # rotate 180 degrees — replace this with your real implementation
-        left_motor.Forward(60)
-        right_motor.Reverse(60)
-        sleep(0.8)
 
     def Forward(self, speed=100):
         speed = max(0, min(speed, 100))
@@ -86,73 +100,74 @@ class Motor:
         speed = max(0, min(speed, 100))
         self.mDir.value(1)
         self.pwm.duty_u16(int(65535 * speed / 100))
-        
-        
 
-# ============================
-#   SETUP
-# ============================
+
+# Instantiate motors
 left_motor  = Motor(4, 5)
 right_motor = Motor(7, 6)
+
+# Instantiate actuator
+actuator1 = Actuator(12, 13)   # <-- update to correct pins
+
+
+# ============================================================
+#   ROBOT MOVEMENT HELPERS
+# ============================================================
+
+def turn_around():
+    left_motor.Forward(60)
+    right_motor.Reverse(60)
+    sleep(0.8)
+
+
+# ============================================================
+#   LINE SENSORS
+# ============================================================
 
 s1 = Pin(8, Pin.IN)
 s2 = Pin(9, Pin.IN)
 s3 = Pin(10, Pin.IN)
 s4 = Pin(11, Pin.IN)
-motor_status_pin = 
-'''Current GPIO PINS: 11,12,13,14,18,19,20,21,'''
-
-junction = 0
-last_pattern = (0,0,0,0)
-stable_count = 0
-REQUIRED_STABLE = 2
-
-last_junction_time = ticks_ms()
-
-# Timing gaps (per-junction)
-JUNCTION_GAPS = [
-    0, 1500, 1500, 1500]
 
 
+# ============================================================
+#   LINE FOLLOWING LOGIC
+# ============================================================
 
-# ============================
-#   LINE FOLLOWING (SMOOTHED)
-# ============================
 def follow_line(pattern):
 
-    # Left drift → inner two sensors see black: 1100 or 0100
+    # Left drift
     if pattern in [(1,1,0,0), (0,1,0,0)]:
         left_motor.Forward(40)
         right_motor.Forward(70)
 
-    # Right drift → inner two sensors see black: 0011 or 0010
+    # Right drift
     elif pattern in [(0,0,1,1), (0,0,1,0)]:
         left_motor.Forward(70)
         right_motor.Forward(40)
 
-    # Perfectly on line (0000)
+    # Straight
     elif pattern == (0,0,0,0):
         left_motor.Forward(65)
         right_motor.Forward(65)
 
-    # Unknown pattern → go straight safely
+    # Unknown pattern → slow straight
     else:
         left_motor.Forward(50)
         right_motor.Forward(50)
 
 
+# ============================================================
+#   JUNCTION HANDLING
+# ============================================================
 
-# ============================
-#   JUNCTION ROUTE
-# ============================
-def forward_start():
-    global junction, last_junction_time, stable_count
+def forward_start(pattern, now):
+    global junction, last_junction_time
 
-    # Skip junction if timing gap not reached
     if ticks_diff(now, last_junction_time) < JUNCTION_GAPS[junction]:
         return
 
-    # ——— JUNCTION 1 ———
+    # Junction 1
     if pattern == (1,1,1,1) and junction == 0:
         junction += 1
         last_junction_time = now
@@ -160,10 +175,9 @@ def forward_start():
         left_motor.Forward(20)
         right_motor.Forward(20)
         sleep(0.5)
-        stable_count = 0
         return
 
-    # ——— JUNCTION 2 ———
+    # Junction 2
     if pattern == (1,1,1,1) and junction == 1:
         junction += 1
         last_junction_time = now
@@ -171,10 +185,9 @@ def forward_start():
         left_motor.Forward(80)
         right_motor.Reverse(80)
         sleep(0.5)
-        stable_count = 0
         return
 
-    # ——— JUNCTION 3 ———
+    # Junction 3
     if pattern == (0,0,1,1) and junction == 2:
         junction += 1
         last_junction_time = now
@@ -182,97 +195,84 @@ def forward_start():
         left_motor.Forward(80)
         right_motor.Forward(80)
         sleep(0.5)
-        stable_count = 0
         return
 
-    # ——— JUNCTION 4 ———
+    # Junction 4
     if pattern == (1,1,1,1) and junction == 3:
         junction += 1
         last_junction_time = now
         print(">>> Junction 4")
-        right_motor.Forward(80)
         left_motor.Reverse(80)
+        right_motor.Forward(80)
         sleep(0.5)
-        stable_count = 0
-        return
-    # ——— JUNCTIONS 5 → 11 ———
-    if pattern == (1,1,0,0) and junction >= 4 and junction < 11:
-        junction += 1
-        sensor_on() 
-        last_junction_time = now
-        print(f">>> Junction {junction}")
-        stable_count = 0
-        
         return
 
+    # Spur junctions 5–11
+    if pattern == (1,1,0,0) and 4 <= junction < 11:
+        junction += 1
+        last_junction_time = now
+        print(f">>> Spur Junction {junction}")
+        sensor_on()
+        return
+
+
+# ============================================================
+#   SPUR ROUTINES (Pick-up)
+# ============================================================
+
 def handle_spur():
-    '''Turns left into spur'''
+    """Turn into spur and execute pickup procedure."""
+    # Turn left inside spur
     left_motor.Reverse(70)
     right_motor.Forward(70)
     sleep(0.5)
+
+    # Move straight inside spur
     left_motor.Forward(40)
     right_motor.Forward(40)
     sleep(0.5)
+
     lifting_ground_floor()
-         
-         
-
-
 
 
 def lifting_ground_floor():
-
-    # robot turns
-   
-    
-    # lifts forklift to 35 mm
-    actuator1.set(dir = 0, speed=50) 
+    """Pick up object from spur."""
+    # Lift to 35 mm
+    actuator1.set(dir=0, speed=50)
     sleep(8)
-    actuator1.set(dir = 1, speed=0)
+    actuator1.set(dir=1, speed=0)
     sleep(10)
-    
+
+    # Drive forward
     left_motor.Forward(40)
     right_motor.Forward(40)
     sleep(2)
-    
-    # lift forklift to > 40 mm
-    actuator1.set(dir = 0, speed=50) 
+
+    # Lift above 40 mm
+    actuator1.set(dir=0, speed=50)
     sleep(3.5)
-    actuator1.set(dir = 1, speed=0)
+    actuator1.set(dir=1, speed=0)
     sleep(10)
-    
-    # reverse
+
+    # Reverse out
     left_motor.Reverse(40)
     right_motor.Reverse(40)
-    
-    # lower forklift to 20 mm
-    actuator1.set(dir = 1, speed=50) 
+    sleep(2)
+
+    # Lower to ~20 mm
+    actuator1.set(dir=1, speed=50)
     sleep(7)
-    actuator1.set(dir = 1, speed=0)
+    actuator1.set(dir=1, speed=0)
     sleep(10)
-    
+
     turn_around()
-    
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-# ============================
+# ============================================================
 #   MAIN LOOP
-# ============================
+# ============================================================
+
 while True:
-    # Read sensors
     v1 = s1.value()
     v2 = s2.value()
     v3 = s3.value()
@@ -280,127 +280,26 @@ while True:
     pattern = (v1, v2, v3, v4)
 
     now = ticks_ms()
-
-    # Print for debugging
     print("Sensors:", pattern, "  Junction:", junction)
 
-    # ---------- Stability filter ----------
+    # Stability filter
+    global last_pattern, stable_count
     if pattern == last_pattern:
         stable_count += 1
     else:
         stable_count = 0
+
     last_pattern = pattern
 
-    # ---------- Line following ----------
+    # Follow the line
     follow_line(pattern)
 
-    # ---------- Junction detection ----------
+    # Detect junctions
     if stable_count >= REQUIRED_STABLE:
         forward_start(pattern, now)
 
     sleep(0.05)
 
-
-    forward_start()
-    go_home1()
-    
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-         
-    
-
-    
-    
-         
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-      
-     def go_home1():
-       ....
-       ....
-       ....
-      junction = 0
-      if pattern == (1,1,1,1) and junction == 0:
-        junction += 1
-        last_junction_time = now
-        print(">>> Junction 1")
-        left_motor.Forward(70)
-        right_motor.Reverse(40)
-        sleep(0.5)
-        stable_count = 0
-        return
-
-    # ——— JUNCTION 2 ———
-    if pattern == (0,0,1,1) and junction == 1:
-        junction += 1
-        last_junction_time = now
-        print(">>> Junction 2")
-        left_motor.Forward(70)
-        right_motor.reverse(70)
-        sleep(0.5)
-        stable_count = 0
-        return
-
-    # ——— JUNCTION 3 ———
-    if pattern == (0,0,1,1) and junction == 2:
-        junction += 1
-        last_junction_time = now
-        print(">>> Junction 3")
-        left_motor.Forward(70)
-        right_motor.Forward(70)
-        sleep(0.5)
-        stable_count = 0
-        return
-    
-    if pattern == (1,1,0,0) and junction == 3:
-        junction += 1
-        last_junction_time = now
-        print(">>> Junction 3")
-        left_motor.Reverse(70)
-        right_motor.Forward(70)
-        sleep(0.5)
-        turn_around()
-    
-        stable_count = 0
-        return
-
-
-         
 
 
 
