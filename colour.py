@@ -23,6 +23,7 @@ def colour_detect():
         colour = "yellow"
     else 
         colour = "none"
+    print(colour)
     return colour
         
         
