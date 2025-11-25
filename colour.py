@@ -4,7 +4,7 @@ from utime import sleep
 
 i2c_bus = I2C(id=1, sda=Pin(18), scl=Pin(19), freq = 10) 
 tcs = tcs3472(i2c_bus)
-colourpin = Pin(17, Pin.Out)
+colourpin = Pin(17, Pin.OUT)
 colourpin.value(1)
 def colour_detect():
     colour = "none"
