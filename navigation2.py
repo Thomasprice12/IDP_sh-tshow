@@ -1,12 +1,11 @@
-# robot_main.py
-# Single-file, coherent robot program for MicroPython (RP2040-like)
-# Features:
-# - Motor and Actuator classes
-# - VL53L0X distance sensor activation only at spurs
-# - Line following via 4 binary sensors
-# - Junction detection with stability filter and time gaps
-# - State machine controlling behaviour
+# robot_full_final.py
+# Single-file robot program for MicroPython
+# - Motors, Actuator
+# - VL53L0X distance sensor (activated at spurs)
+# - Line following with 4 sensors
+# - Junction handling
 # - Spur handling and lift sequence
+# - GO_HOME sequence integrated in the state machine
 
 from machine import Pin, PWM, I2C
 from utime import sleep, ticks_ms, ticks_diff
@@ -116,14 +115,14 @@ last_pattern = (0, 0, 0, 0)
 stable_count = 0
 last_junction_time = ticks_ms()
 
-# Simple state machine states
+# State machine states
 STATE_IDLE = "IDLE"
 STATE_FOLLOW = "FOLLOW_LINE"
-STATE_JUNCTION_CHECK = "JUNCTION_CHECK"
 STATE_SPUR_CHECK = "SPUR_CHECK"
 STATE_ENTER_SPUR = "ENTER_SPUR"
 STATE_LIFT = "LIFT"
 STATE_EXIT_SPUR = "EXIT_SPUR"
+STATE_GO_HOME = "GO_HOME"
 
 state = STATE_FOLLOW
 
@@ -135,7 +134,10 @@ def sensor_start():
     if sensor is None:
         i2c = I2C(0, sda=Pin(I2C_SDA), scl=Pin(I2C_SCL))
         sensor = VL53L0X(i2c)
-    sensor.start()
+    try:
+        sensor.start()
+    except Exception:
+        pass
     sensor_running = True
 
 def sensor_stop():
@@ -162,7 +164,6 @@ def sensor_read_distance():
 # MOVEMENT HELPERS
 # ---------------------------
 def turn_around():
-    # Simple in-place turn: left forward, right reverse for a short time
     left_motor.Forward(60)
     right_motor.Reverse(60)
     sleep(0.8)
@@ -220,7 +221,7 @@ def follow_line(pattern):
         right_motor.Forward(50)
 
 # ---------------------------
-# JUNCTION HANDLER
+# JUNCTION HANDLER (main path)
 # ---------------------------
 def forward_start(pattern, now):
     """Handle main junction navigation depending on current junction number.
@@ -239,7 +240,7 @@ def forward_start(pattern, now):
         drive_forward(0.5, speed=20)
         return True, STATE_FOLLOW
 
-    # Junction 2: (1,1,1,1) -> pivot (example behaviour)
+    # Junction 2
     if pattern == (1,1,1,1) and junction == 1:
         junction += 1
         last_junction_time = now
@@ -247,7 +248,7 @@ def forward_start(pattern, now):
         pivot_right(duration=0.5, speed=80)
         return True, STATE_FOLLOW
 
-    # Junction 3: (0,0,1,1) -> forward
+    # Junction 3
     if pattern == (0,0,1,1) and junction == 2:
         junction += 1
         last_junction_time = now
@@ -255,7 +256,7 @@ def forward_start(pattern, now):
         drive_forward(0.5, speed=80)
         return True, STATE_FOLLOW
 
-    # Junction 4: (1,1,1,1) -> pivot left
+    # Junction 4
     if pattern == (1,1,1,1) and junction == 3:
         junction += 1
         last_junction_time = now
@@ -277,9 +278,7 @@ def forward_start(pattern, now):
 # ---------------------------
 def handle_spur_entry():
     """Enter the spur: small left turn and drive inside."""
-    # Turn left into spur (short pivot)
     pivot_left(duration=0.45, speed=70)
-    # Move into spur a bit
     drive_forward(0.5, speed=40)
 
 def lifting_ground_floor():
@@ -318,6 +317,71 @@ def lifting_ground_floor():
     turn_around()
 
 # ---------------------------
+# GO HOME ROUTINE (integrated)
+# ---------------------------
+def go_home1(pattern, now):
+    """
+    Implements the go-home junction sequence.
+    Returns True if an action was taken (junction advanced).
+    """
+    global junction, last_junction_time, stable_count
+
+    # ---- HOME JUNCTION 1 ----
+    if pattern == (1,1,1,1) and junction == 0:
+        junction = 1
+        last_junction_time = now
+        print("HOME >>> Junction 1")
+        left_motor.Forward(70)
+        right_motor.Reverse(40)
+        sleep(0.5)
+        left_motor.off()
+        right_motor.off()
+        stable_count = 0
+        return True
+
+    # ---- HOME JUNCTION 2 ----
+    if pattern == (0,0,1,1) and junction == 1:
+        junction = 2
+        last_junction_time = now
+        print("HOME >>> Junction 2")
+        left_motor.Forward(70)
+        right_motor.Reverse(70)
+        sleep(0.5)
+        left_motor.off()
+        right_motor.off()
+        stable_count = 0
+        return True
+
+    # ---- HOME JUNCTION 3 ----
+    if pattern == (0,0,1,1) and junction == 2:
+        junction = 3
+        last_junction_time = now
+        print("HOME >>> Junction 3")
+        left_motor.Forward(70)
+        right_motor.Forward(70)
+        sleep(0.5)
+        left_motor.off()
+        right_motor.off()
+        stable_count = 0
+        return True
+
+    # ---- HOME JUNCTION 4 ----
+    if pattern == (1,1,0,0) and junction == 3:
+        junction = 4
+        last_junction_time = now
+        print("HOME >>> Junction 4")
+        left_motor.Reverse(70)
+        right_motor.Forward(70)
+        sleep(0.5)
+        turn_around()
+        left_motor.off()
+        right_motor.off()
+        stable_count = 0
+        return True
+
+    return False
+
+# ---------------------------
 # MAIN LOOP (STATE MACHINE)
 # ---------------------------
 def main_loop():
@@ -346,29 +410,27 @@ def main_loop():
             stable_count = 0
         last_pattern = pattern
 
-        # Default behaviour in FOLLOW_LINE: continuously perform corrections
+        # --------------------
+        # FOLLOW state
+        # --------------------
         if state == STATE_FOLLOW:
             follow_line(pattern)
-            # If pattern stable enough, check junctions
             if stable_count >= REQUIRED_STABLE:
                 action_taken, next_state = forward_start(pattern, now)
                 if action_taken and next_state == STATE_SPUR_CHECK:
                     state = STATE_SPUR_CHECK
-                # else remain in FOLLOW
-            # small sleep to yield
             sleep(0.02)
             continue
 
-        # Check for spur (activation of distance sensor)
+        # --------------------
+        # SPUR CHECK state
+        # --------------------
         if state == STATE_SPUR_CHECK:
-            # start sensor, read a few samples
             print("SPUR CHECK: powering distance sensor")
             sensor_start()
-            # Give sensor a short settling time
-            sleep(0.1)
-            # Read multiple times for robustness
+            sleep(0.1)  # sensor settle
             detected = False
-            for _ in range(10):  # ~10 * 0.1s = 1s max checking
+            for _ in range(10):
                 d = sensor_read_distance()
                 print("Distance read:", d)
                 if d != -1 and d < DIST_THRESHOLD:
@@ -385,26 +447,57 @@ def main_loop():
                 state = STATE_FOLLOW
             continue
 
-        # Enter spur
+        # --------------------
+        # ENTER SPUR state
+        # --------------------
         if state == STATE_ENTER_SPUR:
             handle_spur_entry()
             state = STATE_LIFT
             continue
 
-        # Perform lift/pick sequence
+        # --------------------
+        # LIFT state
+        # --------------------
         if state == STATE_LIFT:
             lifting_ground_floor()
             state = STATE_EXIT_SPUR
             continue
 
-        # Exit spur: after lift we already turned around; resume follow
+        # --------------------
+        # EXIT SPUR state
+        # After lifting and turning around we switch to GO_HOME
+        # --------------------
         if state == STATE_EXIT_SPUR:
-            # small forward to re-align on line (tweak if necessary)
-            drive_forward(0.5, speed=40)
-            state = STATE_FOLLOW
+            print("Finished spur & lift. Switching to GO_HOME mode.")
+            # Reset junction counter for the go-home logic
+            junction = 0
+            last_junction_time = now
+            stable_count = 0
+            state = STATE_GO_HOME
             continue
 
-        # IDLE / fallback
+        # --------------------
+        # GO_HOME state
+        # --------------------
+        if state == STATE_GO_HOME:
+            # Continue following line behaviour so robot stays on track while searching junctions
+            follow_line(pattern)
+
+            if stable_count >= REQUIRED_STABLE:
+                acted = go_home1(pattern, now)
+                if acted:
+                    # If go_home1 advanced to final home junction (junction == 4) -> finish
+                    if junction == 4:
+                        print("Robot reached HOME junction. Stopping and switching to IDLE.")
+                        left_motor.off()
+                        right_motor.off()
+                        state = STATE_IDLE
+            sleep(0.02)
+            continue
+
+        # --------------------
+        # IDLE state
+        # --------------------
         if state == STATE_IDLE:
             left_motor.off()
             right_motor.off()
@@ -420,7 +513,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("Interrupted by user. Stopping everything.")
     finally:
-        # Ensure actuators and motors are stopped
         left_motor.off()
         right_motor.off()
         actuator1.stop()
