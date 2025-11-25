@@ -21,7 +21,7 @@ def colour_detect():
         colour = "blue" 
     elif x > 5000:
         colour = "yellow"
-    else 
+    else: 
         colour = "none"
     print(colour)
     return colour
