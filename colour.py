@@ -13,21 +13,25 @@ def colour_detect():
     red = 0
     green = 0
     blue = 0 
-    for i in range(0,20):
+    for i in range(0,5):
         x += tcs.light()
-        red += tcs.
-    x = x/20
-    if 3000 > x > 2000:
+        red += tcs.rgb()[0]
+        green += tcs.rgb()[1]
+        blue += tcs.rgb()[2]
+    x = x/5
+    red = red/5
+    blue = blue/5
+    green = green/5
+    if max(red, green, blue) == red and 700 > x > 500:
         colour = "red"
-    elif 2000 > x > 1400:
-        colour = "green"
-    elif 5000 > x > 3000:
-        colour = "blue" 
-    elif x > 5000:
+    elif max(red, green, blue) == blue:
+        colour = "blue"
+    elif 550 > x > 450:
+        colour = "green" 
+    elif 1200 > x > 600:
         colour = "yellow"
     else: 
         colour = "none"
-    print(colour)
     return colour
         
         
