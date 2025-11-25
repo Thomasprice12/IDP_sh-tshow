@@ -433,7 +433,7 @@ def main_loop():
             for _ in range(10):
                 d = sensor_read_distance()
                 print("Distance read:", d)
-                if d != -1 and d < DIST_THRESHOLD:
+                if d != -1 and d < 400:  #400 is 40cm and is the distance comparable to the distance to the box from the edge of the spur i.e. when the sensor is activated and henceforth begins to detect
                     detected = True
                     break
                 sleep(0.1)
