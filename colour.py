@@ -10,8 +10,12 @@ def colour_detect():
     colour = "none"
     colourpin.value(0)
     x = 0
+    red = 0
+    green = 0
+    blue = 0 
     for i in range(0,20):
         x += tcs.light()
+        red += tcs.
     x = x/20
     if 3000 > x > 2000:
         colour = "red"
