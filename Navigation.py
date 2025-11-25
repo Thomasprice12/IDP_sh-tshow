@@ -213,6 +213,7 @@ def handle_spur():
     left_motor.Forward(40)
     right_motor.Forward(40)
     sleep(0.5)
+    lifting_ground_floor()
          
          
 
@@ -251,6 +252,7 @@ def lifting_ground_floor():
     sleep(10)
     
     turn_around()
+    
 
 
 
@@ -300,6 +302,8 @@ while True:
 
 
     forward_start()
+    go_home1()
+    
     
 
 
@@ -325,25 +329,7 @@ while True:
 
          
     
-    # colour sensor
-    
-    # lift forklift to > 40 mm
-    actuator1.set(dir = 0, speed=50) 
-    sleep(3.5)
-    actuator1.set(dir = 1, speed=0)
-    sleep(10)
 
-  #lower forklift to 20mm
-    actuator1.set(dir = 1, speed=50) 
-    sleep(7)
-    actuator1.set(dir = 1, speed=0)
-    sleep(10)
-    
-    # reverse
-    left_motor.Reverse(y)
-    right_motor.Reverse(y)
-    sleep(2)
-    u_turn()
     
     
          
@@ -369,7 +355,7 @@ while True:
        ....
        ....
       junction = 0
-      if pattern == (0,0,1,1) and junction == 0:
+      if pattern == (1,1,1,1) and junction == 0:
         junction += 1
         last_junction_time = now
         print(">>> Junction 1")
@@ -380,33 +366,33 @@ while True:
         return
 
     # ——— JUNCTION 2 ———
-    if pattern == (1,1,0,0) and junction == 1:
+    if pattern == (0,0,1,1) and junction == 1:
         junction += 1
         last_junction_time = now
         print(">>> Junction 2")
         left_motor.Forward(70)
-        right_motor.Forward(70)
+        right_motor.reverse(70)
         sleep(0.5)
         stable_count = 0
         return
 
     # ——— JUNCTION 3 ———
-    if pattern == (1,1,0,0) and junction == 2:
+    if pattern == (0,0,1,1) and junction == 2:
         junction += 1
         last_junction_time = now
         print(">>> Junction 3")
-        left_motor.Reverse(40)
-        right_motor.Forward(80)
+        left_motor.Forward(70)
+        right_motor.Forward(70)
         sleep(0.5)
         stable_count = 0
         return
     
-    if pattern == (1,1,1,1) and junction == 3:
+    if pattern == (1,1,0,0) and junction == 3:
         junction += 1
         last_junction_time = now
         print(">>> Junction 3")
-        left_motor.off
-        right_motor.off
+        left_motor.Reverse(70)
+        right_motor.Forward(70)
         sleep(0.5)
         turn_around()
     
@@ -415,10 +401,6 @@ while True:
 
 
          
-#when it's at a spur:
-
-if pattern == (1,1,0,0):
-         sesnsor_on()
 
 
 
