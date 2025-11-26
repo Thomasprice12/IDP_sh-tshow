@@ -24,15 +24,14 @@ def colour_detect():
     green = green/5
     if max(red, green, blue) == red and 700 > x > 500:
         colour = "red"
-    elif max(red, green, blue) == blue:
+    elif max(red, green, blue) == blue and 1000 > x > 700:
         colour = "blue"
-    elif 550 > x > 450:
+    elif 600 > x > 0:
         colour = "green" 
-    elif 1200 > x > 600:
+    elif x > 600:
         colour = "yellow"
     else: 
         colour = "none"
+    colourpin.value(1)
     return colour
-        
-        
 
