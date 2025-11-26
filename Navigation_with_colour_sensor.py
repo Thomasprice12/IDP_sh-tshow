@@ -1,19 +1,17 @@
-# robot_full_final_with_colour.py
+# robot_full_final_with_colour_safe.py
 # Single-file robot program for MicroPython
-# - Motors, Actuator
-# - VL53L0X distance sensor (activated at spurs)
-# - TCS3472 colour sensor (reads colour before lifting)
-# - Line following with 4 sensors
-# - Junction handling
-# - Spur handling and lift sequence
-# - GO_HOME sequence integrated in the state machine
+# Motors, Actuator
+# VL53L0X distance sensor (activated at spurs)
+# TCS3472 colour sensor (reads colour before lifting)
+# Line following with 4 sensors
+# Junction handling
+# Spur handling and lift sequence
+# GO_HOME sequence integrated in the state machine
 
 from machine import Pin, PWM, I2C
 from utime import sleep, ticks_ms, ticks_diff
 
-# VL53L0X library (same as earlier)
 from libs.VL53L0X.VL53L0X import VL53L0X
-# TCS3472 colour sensor library (user-provided path)
 from libs.tcs3472_micropython.tcs3472 import tcs3472
 
 # ---------------------------
@@ -51,7 +49,7 @@ DIST_THRESHOLD = 400  # 400 mm = 40 cm
 
 # Timing / stability
 REQUIRED_STABLE = 2  # number of consecutive identical patterns to consider stable
-JUNCTION_GAPS = [0, 1500, 1500, 1500]  # ms gap per junction index (use last if index exceeds length)
+JUNCTION_GAPS = [0, 1500, 1500, 1500]  # ms gap per junction index
 
 # ---------------------------
 # UTIL / HELPERS
@@ -99,13 +97,14 @@ class Motor:
         speed = max(0, min(speed, 100))
         self.mDir.value(0)
         self.pwm.duty_u16(int(65535 * speed / 100))
-        self.is_on = (duty > 0)
+        self.is_on = (speed > 0)
 
     def Reverse(self, speed=100):
         speed = max(0, min(speed, 100))
         self.mDir.value(1)
         self.pwm.duty_u16(int(65535 * speed / 100))
-        self.is_on = (duty > 0)
+        self.is_on = (speed > 0)
+
 # ---------------------------
 # HARDWARE INSTANTIATION
 # ---------------------------
@@ -118,17 +117,14 @@ s2 = Pin(S2_PIN, Pin.IN)
 s3 = Pin(S3_PIN, Pin.IN)
 s4 = Pin(S4_PIN, Pin.IN)
 
-# VL53L0X object - created lazily
 vl_sensor = None
 vl_running = False
 
-# TCS3472 colour sensor setup (create I2C and object)
-# Use I2C id=1 for the colour sensor; adjust if your board requires different usage
 try:
-    tcs_i2c = I2C(1, sda=Pin(I2C_TCS_SDA), scl=Pin(I2C_TCS_SCL), freq=100000)
+    tcs_i2c = I2C(1, sda=Pin(I2C_TCS_SDA), scl=Pin(I2C_TCS_SCL), freq=10)
     tcs = tcs3472(tcs_i2c)
     colourpin = Pin(TCS_LED_PIN, Pin.OUT)
-    colourpin.value(1)  # keep LED off/high depending on your wiring; user's code uses 1 initially
+    colourpin.value(1)
     COLOUR_AVAILABLE = True
 except Exception as e:
     print("Warning: TCS3472 init failed:", e)
@@ -144,7 +140,6 @@ last_pattern = (0, 0, 0, 0)
 stable_count = 0
 last_junction_time = ticks_ms()
 
-# State machine states
 STATE_IDLE = "IDLE"
 STATE_FOLLOW = "FOLLOW_LINE"
 STATE_SPUR_CHECK = "SPUR_CHECK"
@@ -156,13 +151,13 @@ STATE_GO_HOME = "GO_HOME"
 state = STATE_FOLLOW
 
 # ---------------------------
-# VL53L0X DISTANCE SENSOR MANAGEMENT
+# VL53L0X SENSOR MANAGEMENT
 # ---------------------------
 def vl_sensor_start():
     global vl_sensor, vl_running
     if vl_sensor is None:
         try:
-            i2c_vl = I2C(0, sda=Pin(I2C_VL_SDA), scl=Pin(I2C_VL_SCL), freq=100000)
+            i2c_vl = I2C(0, sda=Pin(I2C_VL_SDA), scl=Pin(I2C_VL_SCL), freq=1000)
             vl_sensor = VL53L0X(i2c_vl)
         except Exception as e:
             print("VL53 init error:", e)
@@ -184,8 +179,6 @@ def vl_sensor_stop():
     vl_running = False
 
 def vl_read_distance():
-    """Return distance in mm or -1 on failure/non-positive."""
-    global vl_sensor
     if vl_sensor is None:
         return -1
     try:
@@ -195,410 +188,245 @@ def vl_read_distance():
         return -1
 
 # ---------------------------
-# TCS3472 COLOUR DETECTION
+# COLOUR DETECTION
 # ---------------------------
 def colour_detect():
-    """Return colour string: 'red', 'green', 'blue', 'yellow', or 'none'"""
-    if not COLOUR_AVAILABLE or tcs is None:
-        return "none"
-    # turn on/enable LED if required by wiring
-    # user's code used colourpin.value(0) to enable before measurement
+    colour = "none"
     colourpin.value(0)
     x = 0
     red = 0
     green = 0
-    blue = 0
-    # average several readings
-    for i in range(5):
-        try:
-            x += tcs.light()
-            rgb = tcs.rgb()
-            red += rgb[0]
-            green += rgb[1]
-            blue += rgb[2]
-        except Exception:
-            # if sensor fails, return none
-            colourpin.value(1)
-            return "none"
-        sleep(0.02)
-    # compute averages
-    x = x / 5.0
-    red = red / 5.0
-    green = green / 5.0
-    blue = blue / 5.0
-
-    # restore LED off
-    colourpin.value(1)
-
-    # Decision logic (as per user's starter)
+    blue = 0 
+    for i in range(0,5):
+        x += tcs.light()
+        red += tcs.rgb()[0]
+        green += tcs.rgb()[1]
+        blue += tcs.rgb()[2]
+    x = x/5
+    red = red/5
+    blue = blue/5
+    green = green/5
     if max(red, green, blue) == red and 700 > x > 500:
-        return "red"
-    elif max(red, green, blue) == blue:
-        return "blue"
-    elif 550 > x > 450:
-        return "green"
-    elif 1200 > x > 600:
-        return "yellow"
-    else:
-        return "none"
+        colour = "red"
+    elif max(red, green, blue) == blue and 1000 > x > 700:
+        colour = "blue"
+    elif 600 > x > 0:
+        colour = "green" 
+    elif x > 600:
+        colour = "yellow"
+    else: 
+        colour = "none"
+    colourpin.value(1)
+    return colour
 
 # ---------------------------
-# MOVEMENT HELPERS
+# MOVEMENT HELPERS (safe stop integrated)
 # ---------------------------
 def turn_around():
-    left_motor.Forward(60)
-    right_motor.Reverse(60)
+    left_motor.Reverse(60)
+    right_motor.Forward(60)
     sleep(0.8)
-   
+    left_motor.off()
+    right_motor.off()
 
-def pivot_left(duration=0.5, speed=70):
+def pivot_left(duration=0.5, speed=80):
     left_motor.Reverse(speed)
     right_motor.Forward(speed)
     sleep(duration)
- )
+    left_motor.off()
+    right_motor.off()
 
-def pivot_right(duration=0.5, speed=70):
+def pivot_right(duration=0.5, speed=80):
     left_motor.Forward(speed)
     right_motor.Reverse(speed)
     sleep(duration)
-    
+    left_motor.off()
+    right_motor.off()
 
 def drive_forward(duration, speed=50):
     left_motor.Forward(speed)
     right_motor.Forward(speed)
     sleep(duration)
-    
+    left_motor.off()
+    right_motor.off()
 
 def drive_reverse(duration, speed=50):
     left_motor.Reverse(speed)
     right_motor.Reverse(speed)
     sleep(duration)
-   
+    left_motor.off()
+    right_motor.off()
 
 # ---------------------------
 # LINE FOLLOWING
 # ---------------------------
 def follow_line(pattern):
-    """Corrective simple behaviour based on 4-sensor pattern."""
-    # Left drift -> inner left sensors see black: (1,1,0,0) or (0,1,0,0)
-    if pattern in [(1,1,0,0), (0,1,0,0)]:
-        left_motor.Forward(40)
-        right_motor.Forward(70)
-    # Right drift -> inner right sensors see black: (0,0,1,1) or (0,0,1,0)
-    elif pattern in [(0,0,1,1), (0,0,1,0)]:
-        left_motor.Forward(70)
-        right_motor.Forward(40)
-    # On line -> go straight faster
-    elif pattern == (0,0,0,0):
-        left_motor.Forward(65)
-        right_motor.Forward(65)
-    # Unknown -> safe slow forward
+    if pattern in [(1,1,0,0),(0,1,0,0)]:
+        left_motor.Forward(5); right_motor.Forward(80)
+    elif pattern in [(0,0,1,1),(0,0,1,0)]:
+        left_motor.Forward(80); right_motor.Forward(5)
+    elif pattern==(0,0,0,0):
+        left_motor.Forward(65); right_motor.Forward(65)
     else:
-        left_motor.Forward(50)
-        right_motor.Forward(50)
+        left_motor.Forward(50); right_motor.Forward(50)
 
 # ---------------------------
-# JUNCTION HANDLER (main path)
+# JUNCTION HANDLER
 # ---------------------------
 def forward_start(pattern, now):
-    """Handle main junction navigation depending on current junction number.
-       Returns a tuple (action_taken: bool, next_state: str or None)"""
     global junction, last_junction_time
-
-    # Avoid re-triggering too soon
-    if ticks_diff(now, last_junction_time) < safe_gap_for_junction(junction):
+    if ticks_diff(now, last_junction_time)<safe_gap_for_junction(junction):
         return False, None
 
-    # Junction 1: (1,1,1,1) -> small forward
-    if pattern == (1,1,1,1) and junction == 0:
-        junction += 1
-        last_junction_time = now
-        print(">>> Junction 1")
-        drive_forward(0.5, speed=20)
-        return True, STATE_FOLLOW
-
-    # Junction 2
-    if pattern == (1,1,1,1) and junction == 1:
-        junction += 1
-        last_junction_time = now
-        print(">>> Junction 2: pivot right")
-        pivot_right(duration=0.5, speed=80)
-        return True, STATE_FOLLOW
-
-    # Junction 3
-    if pattern == (0,0,1,1) and junction == 2:
-        junction += 1
-        last_junction_time = now
-        print(">>> Junction 3")
-        drive_forward(0.5, speed=80)
-        return True, STATE_FOLLOW
-
-    # Junction 4
-    if pattern == (1,1,1,1) and junction == 3:
-        junction += 1
-        last_junction_time = now
-        print(">>> Junction 4: pivot left")
-        pivot_left(duration=0.5, speed=80)
-        return True, STATE_FOLLOW
-
-    # Spur junctions 5..11: (1,1,0,0)
-    if pattern == (1,1,0,0) and 4 <= junction < 11:
-        junction += 1
-        last_junction_time = now
-        print(f">>> Spur Junction {junction}: prepare sensor check")
+    if pattern==(1,1,1,1) and junction==0:
+        junction+=1; last_junction_time=now
+        drive_forward(0.5,20); return True, STATE_FOLLOW
+    if pattern==(1,1,1,1) and junction==1:
+        junction+=1; last_junction_time=now
+        drive_forward(0.6,80)
+        pivot_right(0.9,80); return True, STATE_FOLLOW
+    if pattern==(0,0,1,1) and junction==2:
+        junction+=1; last_junction_time=now
+        drive_forward(0.5,80); return True, STATE_FOLLOW
+    if pattern==(1,1,1,1) and junction==3:
+        junction+=1; last_junction_time=now
+        drive_forward(0.6,80)
+        pivot_left(1,80); return True, STATE_FOLLOW
+    if pattern in [(1,1,0,0) or (1,1,1,0)] and 4<=junction<11:
+        junction+=1; last_junction_time=now
         return True, STATE_SPUR_CHECK
-
-    return False, None
+    return False,None
 
 # ---------------------------
 # SPUR HANDLING
 # ---------------------------
 def handle_spur_entry():
-    """Enter the spur: small left turn and drive inside."""
-    pivot_left(duration=0.45, speed=70)
-    drive_forward(0.5, speed=40)
+    drive_forward(1,60)
+    pivot_left(1,80)
+    drive_forward(3,40)
 
 def lifting_ground_floor():
-    """Actuator-driven pick sequence (timings approximate; calibrate)."""
-
-
-
-    # Lift to ~35 mm
-    print("Lifting to ~35 mm")
-    actuator1.set(dir=0, speed=50)   # extend / lift
-    sleep(8)
-    actuator1.stop()
-    sleep(0.5)
-
-    # Advance to engage object (if necessary)
-    print("Moving forward to engage object")
-    drive_forward(2, speed=40)
-
-    # Lift to > 40 mm (higher)
-    print("Lifting above ~40 mm")
-    actuator1.set(dir=0, speed=50)
-    sleep(3.5)
-    actuator1.stop()
-    sleep(0.5)
-
-    # At this point the robot is close to the box — read colour:
-    colour = colour_detect()
-    print("Detected box colour:", colour)
-
-    # Reverse out of spur
-    print("Reversing out of spur")
-    drive_reverse(2, speed=40)
-
-    # Lower to ~20 mm
-    print("Lowering to ~20 mm")
-    actuator1.set(dir=1, speed=50)   # retract / lower
-    sleep(7)
-    actuator1.stop()
-    sleep(0.5)
-
-    # Turn around to face main track
-    print("Turning around to exit spur")
+    left_motor.off(); right_motor.off()
+    actuator1.set(0,100); sleep(8); actuator1.stop(); sleep(0.5)
+    drive_forward(2,40)
+    actuator1.set(0,100); sleep(3.5); actuator1.stop(); sleep(0.5)
+    colour = colour_detect(); print("Detected box colour:",colour)
+    drive_reverse(2,40)
+    actuator1.set(1,100); sleep(7); actuator1.stop(); sleep(0.5)
     turn_around()
 
 # ---------------------------
-# GO HOME ROUTINE (integrated)
+# GO HOME ROUTINE
 # ---------------------------
 def go_home1(pattern, now):
-    """
-    Implements the go-home junction sequence.
-    Returns True if an action was taken (junction advanced).
-    """
     global junction, last_junction_time, stable_count
-
-    # ---- HOME JUNCTION 1 ----
-    if pattern == (1,1,1,1) and junction == 0:
-        junction = 1
-        last_junction_time = now
-        print("HOME >>> Junction 1")
-        left_motor.Forward(70)
-        right_motor.Reverse(40)
-        sleep(0.5)
-    
-        stable_count = 0
-        return True
-
-    # ---- HOME JUNCTION 2 ----
-    if pattern == (0,0,1,1) and junction == 1:
-        junction = 2
-        last_junction_time = now
-        print("HOME >>> Junction 2")
-        left_motor.Forward(70)
-        right_motor.Reverse(70)
-        sleep(0.5)
-        l
-        stable_count = 0
-        return True
-
-    # ---- HOME JUNCTION 3 ----
-    if pattern == (1,1,0,0) and junction == 2:
-        junction = 3
-        last_junction_time = now
-        print("HOME >>> Junction 3")
-        left_motor.Forward(70)
-        right_motor.Forward(70)
-        sleep(0.5)
-    )
-        stable_count = 0
-        return True
-
-    # ---- HOME JUNCTION 4 ----
-    if pattern == (1,1,0,0) and junction == 3:
-        junction = 4
-        last_junction_time = now
-        print("HOME >>> Junction 4")
-        left_motor.Reverse(70)
-        right_motor.Forward(70)
-        sleep(0.5)
-        turn_around()
-     
-        stable_count = 0
-        return True
-
+    if pattern==(1,1,1,1) and junction==0:
+        junction=1; last_junction_time=now
+        left_motor.Forward(70); right_motor.Reverse(40); sleep(0.5)
+        left_motor.off(); right_motor.off(); stable_count=0; return True
+    if pattern in [(0,0,1,1) or (0,1,1,1)] and junction==1:
+        junction=2; last_junction_time=now
+        drive_forward(0.2, speed=30)
+        left_motor.Forward(70); right_motor.Reverse(70); sleep(0.5)
+        left_motor.off(); right_motor.off(); stable_count=0; return True
+    if pattern==(1,1,0,0) and junction==2:
+        junction=3; last_junction_time=now
+        left_motor.Forward(70); right_motor.Forward(70); sleep(0.5)
+        left_motor.off(); right_motor.off(); stable_count=0; return True
+    if pattern==(1,1,0,0) and junction==3:
+        drive_forward(0.8, speed=60)
+        junction=4; last_junction_time=now
+        left_motor.Reverse(70); right_motor.Forward(70); sleep(0.5)
+        turn_around(); stable_count=0; return True
     return False
 
 # ---------------------------
-# MAIN LOOP (STATE MACHINE)
+# MAIN LOOP
 # ---------------------------
 def main_loop():
     global last_pattern, stable_count, state, last_junction_time, junction
-
+    last_pattern = (0,0,0,0); stable_count=0
     print("Starting main loop...")
-    last_pattern = (0,0,0,0)
-    stable_count = 0
-
     while True:
-        v1 = s1.value()
-        v2 = s2.value()
-        v3 = s3.value()
-        v4 = s4.value()
-        if left_motor.is_on or right_motor.is_on:
-            WalkingPin.value(1)   # robot is moving
-        else:
-            WalkingPin.value(0) 
-            
-        pattern = (v1, v2, v3, v4)
+        pattern = (s1.value(),s2.value(),s3.value(),s4.value())
+        WalkingPin.value(left_motor.is_on or right_motor.is_on)
         now = ticks_ms()
-
-        # Debug print (reduce in final runs if too verbose)
-        print("Sensors:", pattern, "Junction:", junction, "State:", state)
-
-        # Stability filter
-        if pattern == last_pattern:
-            stable_count += 1
-        else:
-            stable_count = 0
+        print("Sensors:", pattern,"Junction:",junction,"State:",state)
+        stable_count = stable_count+1 if pattern==last_pattern else 0
         last_pattern = pattern
-        if 
 
-        # --------------------
-        # FOLLOW state
-        # --------------------
-        if state == STATE_FOLLOW:
+        if state==STATE_FOLLOW:
             follow_line(pattern)
-            if stable_count >= REQUIRED_STABLE:
-                action_taken, next_state = forward_start(pattern, now)
-                if action_taken and next_state == STATE_SPUR_CHECK:
-                    state = STATE_SPUR_CHECK
-            sleep(0.02)
-            continue
-
-        # --------------------
-        # SPUR CHECK state
-        # --------------------
+            if stable_count>=REQUIRED_STABLE:
+                action,next_state = forward_start(pattern,now)
+                if action and next_state==STATE_SPUR_CHECK: state=STATE_SPUR_CHECK
+            sleep(0.02); continue
         if state == STATE_SPUR_CHECK:
-            print("SPUR CHECK: powering distance sensor")
             vl_sensor_start()
-            sleep(0.1)  # sensor settle
             detected = False
-            for _ in range(10):
+            consecutive_reads = 0
+            REQUIRED_CONSECUTIVE = 50  # number of consecutive readings below threshold to confirm box
+
+            for _ in range(20):
+        # Keep following the line while checking the sensor
+                pattern = (s1.value(), s2.value(), s3.value(), s4.value())
+                follow_line(pattern)
+
                 d = vl_read_distance()
-                print("Distance read (mm):", d)
+                print("Distance read:", d)
+
                 if d != -1 and d < DIST_THRESHOLD:
-                    detected = True
-                    break
-                sleep(0.1)
+                    consecutive_reads += 1
+                    if consecutive_reads >= REQUIRED_CONSECUTIVE:
+                        detected = True
+                        break
+                else:
+                    consecutive_reads = 0
+
+                sleep(0.02)  # small delay to avoid blocking too long
+
             vl_sensor_stop()
+            state = STATE_ENTER_SPUR if detected else STATE_FOLLOW
 
-            if detected:
-                print("Object detected in spur -> entering spur")
-                state = STATE_ENTER_SPUR
-            else:
-                print("No object in spur -> continue on line")
-                state = STATE_FOLLOW
-            continue
+                
+        
+        
+        
+        
+       
 
-        # --------------------
-        # ENTER SPUR state
-        # --------------------
-        if state == STATE_ENTER_SPUR:
-            handle_spur_entry()
-            state = STATE_LIFT
-            continue
 
-        # --------------------
-        # LIFT state
-        # --------------------
-        if state == STATE_LIFT:
-            lifting_ground_floor()
-            state = STATE_EXIT_SPUR
-            continue
 
-        # --------------------
-        # EXIT SPUR state
-        # After lifting and turning around we switch to GO_HOME
-        # --------------------
-        if state == STATE_EXIT_SPUR:
+        if state==STATE_ENTER_SPUR:
+            handle_spur_entry(); state=STATE_LIFT; continue
+
+        if state==STATE_LIFT:
+            lifting_ground_floor(); state=STATE_EXIT_SPUR; continue
+
+        if state==STATE_EXIT_SPUR:
             print("Finished spur & lift. Switching to GO_HOME mode.")
-            # Reset junction counter for the go-home logic
-            junction = 0
-            last_junction_time = now
-            stable_count = 0
-            state = STATE_GO_HOME
-            continue
+            junction=0; last_junction_time=now; stable_count=0; state=STATE_GO_HOME; continue
 
-        # --------------------
-        # GO_HOME state
-        # --------------------
-        if state == STATE_GO_HOME:
-            # Continue following line behaviour so robot stays on track while searching junctions
+        if state==STATE_GO_HOME:
             follow_line(pattern)
+            if stable_count>=REQUIRED_STABLE:
+                acted=go_home1(pattern,now)
+                if acted and junction==4:
+                    print("Robot reached HOME junction. Stopping and switching to IDLE.")
+                    left_motor.off(); right_motor.off(); state=STATE_IDLE
+            sleep(0.02); continue
 
-            if stable_count >= REQUIRED_STABLE:
-                acted = go_home1(pattern, now)
-                if acted:
-                    # If go_home1 advanced to final home junction (junction == 4) -> finish
-                    if junction == 4:
-                        print("Robot reached HOME junction. Stopping and switching to IDLE.")
-                        left_motor.off()
-                        right_motor.off()
-                        state = STATE_IDLE
-            sleep(0.02)
-            continue
-
-        # --------------------
-        # IDLE state
-        # --------------------
-        if state == STATE_IDLE:
-            left_motor.off()
-            right_motor.off()
-            sleep(0.1)
-            continue
+        if state==STATE_IDLE:
+            left_motor.off(); right_motor.off(); sleep(0.1); continue
 
 # ---------------------------
 # ENTRY POINT
 # ---------------------------
-if __name__ == "__main__":
+if __name__=="__main__":
     try:
         main_loop()
     except KeyboardInterrupt:
         print("Interrupted by user. Stopping everything.")
     finally:
-        left_motor.off()
-        right_motor.off()
-        actuator1.stop()
-        vl_sensor_stop()
+        left_motor.off(); right_motor.off(); actuator1.stop(); vl_sensor_stop()
+
