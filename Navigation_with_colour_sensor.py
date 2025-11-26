@@ -30,6 +30,8 @@ S1_PIN = 8   # left-most
 S2_PIN = 9
 S3_PIN = 10
 S4_PIN = 11  # right-most
+WalkingPin = Pin(16, Pin.OUT)
+WalkingPin.value(0)   # start OFF
 
 # Actuator (forklift)
 ACT_DIR_PIN = 12
@@ -87,20 +89,23 @@ class Motor:
         self.pwm = PWM(Pin(PWMPin))
         self.pwm.freq(1000)
         self.off()
+        self.is_on = False
 
     def off(self):
         self.pwm.duty_u16(0)
+        self.is_on = False
 
     def Forward(self, speed=100):
         speed = max(0, min(speed, 100))
         self.mDir.value(0)
         self.pwm.duty_u16(int(65535 * speed / 100))
+        self.is_on = (duty > 0)
 
     def Reverse(self, speed=100):
         speed = max(0, min(speed, 100))
         self.mDir.value(1)
         self.pwm.duty_u16(int(65535 * speed / 100))
-
+        self.is_on = (duty > 0)
 # ---------------------------
 # HARDWARE INSTANTIATION
 # ---------------------------
@@ -474,11 +479,15 @@ def main_loop():
     stable_count = 0
 
     while True:
-        # Read sensors
         v1 = s1.value()
         v2 = s2.value()
         v3 = s3.value()
         v4 = s4.value()
+        if left_motor.is_on or right_motor.is_on:
+            WalkingPin.value(1)   # robot is moving
+        else:
+            WalkingPin.value(0) 
+            
         pattern = (v1, v2, v3, v4)
         now = ticks_ms()
 
@@ -491,6 +500,7 @@ def main_loop():
         else:
             stable_count = 0
         last_pattern = pattern
+        if 
 
         # --------------------
         # FOLLOW state
