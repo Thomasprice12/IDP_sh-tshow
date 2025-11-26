@@ -360,32 +360,41 @@ def main_loop():
                 action,next_state = forward_start(pattern,now)
                 if action and next_state==STATE_SPUR_CHECK: state=STATE_SPUR_CHECK
             sleep(0.02); continue
+
         if state == STATE_SPUR_CHECK:
             vl_sensor_start()
-            detected = False
+    
+            REQUIRED_CONSECUTIVE = 3
             consecutive_reads = 0
-            REQUIRED_CONSECUTIVE = 15  # number of consecutive readings below threshold to confirm box
+            detected = False
 
-            for _ in range(30):
-        # Keep following the line while checking the sensor
-                pattern = (s1.value(), s2.value(), s3.value(), s4.value())
-                follow_line(pattern)
-
+    # Take multiple readings while robot is stopped
+            for _ in range(15):  # total of 15 tries
+                left_motor.off()
+                right_motor.off()
                 d = vl_read_distance()
                 print("Distance read:", d)
-
-                if d != -1 and d < DIST_THRESHOLD:
+        
+                if 0 < d < DIST_THRESHOLD:
                     consecutive_reads += 1
                     if consecutive_reads >= REQUIRED_CONSECUTIVE:
                         detected = True
                         break
                 else:
                     consecutive_reads = 0
-
-                sleep(0.05)  # small delay to avoid blocking too long
+                sleep(0.05)  # small delay between readings
 
             vl_sensor_stop()
-            state = STATE_ENTER_SPUR if detected else STATE_FOLLOW
+    
+            if detected:
+        # Box detected → pivot left and enter spur
+                left_motor.off(); right_motor.off()
+                pivot_left(1, 80)
+                drive_forward(3, 40)
+                state = STATE_LIFT
+            else:
+        # No box → continue line following
+                state = STATE_FOLLOW
 
 
        
@@ -424,4 +433,3 @@ if __name__=="__main__":
         print("Interrupted by user. Stopping everything.")
     finally:
         left_motor.off(); right_motor.off(); actuator1.stop(); vl_sensor_stop()
-
