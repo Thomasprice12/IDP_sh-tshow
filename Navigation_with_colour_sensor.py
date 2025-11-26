@@ -157,7 +157,7 @@ def vl_sensor_start():
     global vl_sensor, vl_running
     if vl_sensor is None:
         try:
-            i2c_vl = I2C(0, sda=Pin(I2C_VL_SDA), scl=Pin(I2C_VL_SCL), freq=1000)
+            i2c_vl = I2C(0, sda=Pin(I2C_VL_SDA), scl=Pin(I2C_VL_SCL), freq=10)
             vl_sensor = VL53L0X(i2c_vl)
         except Exception as e:
             print("VL53 init error:", e)
@@ -191,33 +191,32 @@ def vl_read_distance():
 # COLOUR DETECTION
 # ---------------------------
 def colour_detect():
-    colour = "none"
+    if not COLOUR_AVAILABLE or tcs is None:
+        return "none"
     colourpin.value(0)
-    x = 0
-    red = 0
-    green = 0
-    blue = 0 
-    for i in range(0,5):
-        x += tcs.light()
-        red += tcs.rgb()[0]
-        green += tcs.rgb()[1]
-        blue += tcs.rgb()[2]
-    x = x/5
-    red = red/5
-    blue = blue/5
-    green = green/5
-    if max(red, green, blue) == red and 700 > x > 500:
-        colour = "red"
-    elif max(red, green, blue) == blue and 1000 > x > 700:
-        colour = "blue"
-    elif 600 > x > 0:
-        colour = "green" 
-    elif x > 600:
-        colour = "yellow"
-    else: 
-        colour = "none"
+    x = red = green = blue = 0
+    for _ in range(5):
+        try:
+            x += tcs.light()
+            r,g,b = tcs.rgb()
+            red += r; green += g; blue += b
+        except Exception:
+            colourpin.value(1)
+            return "none"
+        sleep(0.02)
+    x /= 5; red/=5; green/=5; blue/=5
     colourpin.value(1)
-    return colour
+
+    if max(red,green,blue) == red and 700>x>500:
+        return "red"
+    elif max(red,green,blue)==blue:
+        return "blue"
+    elif 550>x>450:
+        return "green"
+    elif 1200>x>600:
+        return "yellow"
+    else:
+        return "none"
 
 # ---------------------------
 # MOVEMENT HELPERS (safe stop integrated)
@@ -365,9 +364,9 @@ def main_loop():
             vl_sensor_start()
             detected = False
             consecutive_reads = 0
-            REQUIRED_CONSECUTIVE = 50  # number of consecutive readings below threshold to confirm box
+            REQUIRED_CONSECUTIVE = 15  # number of consecutive readings below threshold to confirm box
 
-            for _ in range(20):
+            for _ in range(30):
         # Keep following the line while checking the sensor
                 pattern = (s1.value(), s2.value(), s3.value(), s4.value())
                 follow_line(pattern)
@@ -383,16 +382,12 @@ def main_loop():
                 else:
                     consecutive_reads = 0
 
-                sleep(0.02)  # small delay to avoid blocking too long
+                sleep(0.05)  # small delay to avoid blocking too long
 
             vl_sensor_stop()
             state = STATE_ENTER_SPUR if detected else STATE_FOLLOW
 
-                
-        
-        
-        
-        
+
        
 
 
