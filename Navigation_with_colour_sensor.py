@@ -366,9 +366,7 @@ def handle_spur_entry():
 def lifting_ground_floor():
     """Actuator-driven pick sequence (timings approximate; calibrate)."""
 
-    # At this point the robot is close to the box — read colour before lifting:
-    colour = colour_detect()
-    print("Detected box colour:", colour)
+
 
     # Lift to ~35 mm
     print("Lifting to ~35 mm")
@@ -387,6 +385,10 @@ def lifting_ground_floor():
     sleep(3.5)
     actuator1.stop()
     sleep(0.5)
+
+    # At this point the robot is close to the box — read colour:
+    colour = colour_detect()
+    print("Detected box colour:", colour)
 
     # Reverse out of spur
     print("Reversing out of spur")
