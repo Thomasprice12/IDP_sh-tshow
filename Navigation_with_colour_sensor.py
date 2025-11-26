@@ -249,36 +249,31 @@ def turn_around():
     left_motor.Forward(60)
     right_motor.Reverse(60)
     sleep(0.8)
-    left_motor.off()
-    right_motor.off()
+   
 
 def pivot_left(duration=0.5, speed=70):
     left_motor.Reverse(speed)
     right_motor.Forward(speed)
     sleep(duration)
-    left_motor.off()
-    right_motor.off()
+ )
 
 def pivot_right(duration=0.5, speed=70):
     left_motor.Forward(speed)
     right_motor.Reverse(speed)
     sleep(duration)
-    left_motor.off()
-    right_motor.off()
+    
 
 def drive_forward(duration, speed=50):
     left_motor.Forward(speed)
     right_motor.Forward(speed)
     sleep(duration)
-    left_motor.off()
-    right_motor.off()
+    
 
 def drive_reverse(duration, speed=50):
     left_motor.Reverse(speed)
     right_motor.Reverse(speed)
     sleep(duration)
-    left_motor.off()
-    right_motor.off()
+   
 
 # ---------------------------
 # LINE FOLLOWING
@@ -423,8 +418,7 @@ def go_home1(pattern, now):
         left_motor.Forward(70)
         right_motor.Reverse(40)
         sleep(0.5)
-        left_motor.off()
-        right_motor.off()
+    
         stable_count = 0
         return True
 
@@ -436,8 +430,7 @@ def go_home1(pattern, now):
         left_motor.Forward(70)
         right_motor.Reverse(70)
         sleep(0.5)
-        left_motor.off()
-        right_motor.off()
+        l
         stable_count = 0
         return True
 
@@ -449,8 +442,7 @@ def go_home1(pattern, now):
         left_motor.Forward(70)
         right_motor.Forward(70)
         sleep(0.5)
-        left_motor.off()
-        right_motor.off()
+    )
         stable_count = 0
         return True
 
@@ -463,8 +455,7 @@ def go_home1(pattern, now):
         right_motor.Forward(70)
         sleep(0.5)
         turn_around()
-        left_motor.off()
-        right_motor.off()
+     
         stable_count = 0
         return True
 
