@@ -440,7 +440,7 @@ def go_home1(pattern, now):
         return True
 
     # ---- HOME JUNCTION 3 ----
-    if pattern == (0,0,1,1) and junction == 2:
+    if pattern == (1,1,0,0) and junction == 2:
         junction = 3
         last_junction_time = now
         print("HOME >>> Junction 3")
