@@ -45,7 +45,7 @@ I2C_TCS_SCL = 19
 TCS_LED_PIN = 17  # LED/enable pin for colour sensor illumination
 
 # Distance threshold (mm)
-DIST_THRESHOLD = 400  # 400 mm = 40 cm
+DIST_THRESHOLD = 250  # 400 mm = 40 cm
 
 # Timing / stability
 REQUIRED_STABLE = 2  # number of consecutive identical patterns to consider stable
@@ -157,7 +157,7 @@ def vl_sensor_start():
     global vl_sensor, vl_running
     if vl_sensor is None:
         try:
-            i2c_vl = I2C(0, sda=Pin(I2C_VL_SDA), scl=Pin(I2C_VL_SCL), freq=10)
+            i2c_vl = I2C(0, sda=Pin(I2C_VL_SDA), scl=Pin(I2C_VL_SCL), freq=100)
             vl_sensor = VL53L0X(i2c_vl)
         except Exception as e:
             print("VL53 init error:", e)
@@ -284,14 +284,14 @@ def forward_start(pattern, now):
         junction+=1; last_junction_time=now
         drive_forward(0.6,80)
         pivot_right(0.9,80); return True, STATE_FOLLOW
-    if pattern==(0,0,1,1) and junction==2:
+    if pattern in [(0,0,1,1), (0,1,1,1)] and junction==2:
         junction+=1; last_junction_time=now
         drive_forward(0.5,80); return True, STATE_FOLLOW
     if pattern==(1,1,1,1) and junction==3:
         junction+=1; last_junction_time=now
         drive_forward(0.6,80)
         pivot_left(1,80); return True, STATE_FOLLOW
-    if pattern in [(1,1,0,0) or (1,1,1,0)] and 4<=junction<11:
+    if pattern in [(1,1,0,0), (1,1,1,0)] and 4<=junction<11:
         junction+=1; last_junction_time=now
         return True, STATE_SPUR_CHECK
     return False,None
@@ -359,42 +359,33 @@ def main_loop():
             if stable_count>=REQUIRED_STABLE:
                 action,next_state = forward_start(pattern,now)
                 if action and next_state==STATE_SPUR_CHECK: state=STATE_SPUR_CHECK
-            sleep(0.02); continue
-
+            sleep(0.01); continue
         if state == STATE_SPUR_CHECK:
             vl_sensor_start()
-    
-            REQUIRED_CONSECUTIVE = 3
-            consecutive_reads = 0
             detected = False
+            consecutive_reads = 0
+            REQUIRED_CONSECUTIVE = 3  # number of consecutive readings below threshold to confirm box
 
-    # Take multiple readings while robot is stopped
-            for _ in range(15):  # total of 15 tries
-                left_motor.off()
-                right_motor.off()
+            for _ in range(10):
+        # Keep following the line while checking the sensor
+                pattern = (s1.value(), s2.value(), s3.value(), s4.value())
+                follow_line(pattern)
+
                 d = vl_read_distance()
                 print("Distance read:", d)
-        
-                if 0 < d < DIST_THRESHOLD:
+
+                if d != -1 and d < DIST_THRESHOLD:
                     consecutive_reads += 1
                     if consecutive_reads >= REQUIRED_CONSECUTIVE:
                         detected = True
                         break
                 else:
                     consecutive_reads = 0
-                sleep(0.05)  # small delay between readings
+
+                sleep(0.05)  # small delay to avoid blocking too long
 
             vl_sensor_stop()
-    
-            if detected:
-        # Box detected → pivot left and enter spur
-                left_motor.off(); right_motor.off()
-                pivot_left(1, 80)
-                drive_forward(3, 40)
-                state = STATE_LIFT
-            else:
-        # No box → continue line following
-                state = STATE_FOLLOW
+            state = STATE_ENTER_SPUR if detected else STATE_FOLLOW
 
 
        
