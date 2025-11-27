@@ -320,11 +320,11 @@ def handle_spur_entry():
 def lifting_ground_floor():
     left_motor.off(); right_motor.off()
     actuator1.set(dir = 1, speed = 60); sleep(7); actuator1.stop()
-    drive_forward(6,80)
-    actuator1.set(dir = 1,speed = 50); sleep(1.8); actuator1.stop(); sleep(0.5)
+    drive_forward(9,50)
+    actuator1.set(dir = 1,speed = 60); sleep(1.8); actuator1.stop(); sleep(0.5)
     colour = colour_detect(); sleep(1); print("Detected box colour:",colour)
     drive_reverse(5.5,40)
-    actuator1.set(0,100); sleep(7); actuator1.stop()
+    actuator1.set(0,100); sleep(5); actuator1.stop()
     pivot_left(1.1,80)
 
 # ---------------------------
