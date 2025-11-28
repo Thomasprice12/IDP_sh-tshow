@@ -343,12 +343,102 @@ def lifting_ground_floor():
 # ---------------------------
 # GO HOME ROUTINE
 # ---------------------------
-def go_home1(pattern, now):
+'''
+def go_home_Blue1():
     global junction, last_junction_time, stable_count
     
     if junction == 0:
         # Require e.g. 1000 ms after switching to GO_HOME
         if ticks_diff(now, last_junction_time) < 2000:
+            return False
+    if pattern in [(0,1,1,1),(0,0,1,1)] and junction ==0:
+         left_motor.Forward(70); right_motor.Reverse(70); sleep(0.5)
+         junction +=1
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction ==1:
+        left_motor.Forward(50); right_motor.Forward(50)
+        junction +=1
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction ==2:
+        left_motor.Forward(50); right_motor.Forward(50)
+        junction +=1
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction ==3:
+        left_motor.Forward(50); right_motor.Forward(50)
+        junction +=1
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction ==4:
+        left_motor.Forward(70); right_motor.Reverse(70); sleep(0.5)
+        junction +=1
+        left_motor.Forward(70); right_motor.Forward(70); sleep(0.5)
+        if pattern in [(1,1,1,1)]:
+            left_motor.Forward(0);right_motor.Forward(0)
+            turn_around()
+def go_home_red1():
+    global junction, last_junction_time, stable_count
+    
+    if junction == 0:
+        # Require e.g. 1000 ms after switching to GO_HOME
+        if ticks_diff(now, last_junction_time) < 2000:
+            return False
+    if pattern in [(0,1,1,1),(0,0,1,1)] and junction ==0:
+         left_motor.Forward(70); right_motor.Forward(70); sleep(0.5)
+         junction +=1
+    if pattern in [(1,1,1,1)] and junction ==1:
+        left_motor.Forward(0); right_motor.Forward(0)
+        junction +=1
+        turn_around()
+        
+    
+def go_home_green1():
+    global junction, last_junction_time, stable_count
+    
+    if junction == 0:
+        # Require e.g. 1000 ms after switching to GO_HOME
+        if ticks_diff(now, last_junction_time) < 2000:
+            return False
+    if pattern in [(0,1,1,1),(0,0,1,1)] and junction ==0:
+         left_motor.Forward(70); right_motor.Reverse(70); sleep(0.5)
+         junction +=1
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction ==1:
+        left_motor.Forward(70); right_motor.Forward(70)
+        junction +=1
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction ==2:
+        left_motor.Forward(70); right_motor.Forward(70)
+        junction +=1
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction ==3:
+        left_motor.Reverse(70); right_motor.Forward(70); sleep(0.5)
+        junction +=1
+        left_motor.Forward(50); right_motor.Forward(50)
+        if pattern in [(1,1,1,1)]:
+            left_motor.Forward(50); right_motor.Foward(0)
+            turn_around
+    
+def go_home_yellow1():
+    global junction, last_junction_time, stable_count
+    
+    if junction == 0:
+        # Require e.g. 1000 ms after switching to GO_HOME
+        if ticks_diff(now, last_junction_time) < 2000:
+            return False
+    if pattern in [(0,1,1,1),(0,0,1,1)] and junction ==0:
+         left_motor.Forward(70); right_motor.Reverse(70); sleep(0.5)
+         junction +=1
+         left_motor.Forward(50); right_motor.Forward(70)
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction ==1:
+        left_motor.Reverse(70); right_motor.Forward(70); sleep(0.5)
+        junction +=1
+        left_motor.Forward(50); right_motor.Forward(50)
+        if pattern in [(1,1,1,1)]:
+            left_motor.Forward(50); right_motor.Foward(0)
+            turn_around
+def go_home_red2():
+def go_home_blue2():
+def go_home_yellow2():
+def go_home_green2():
+'''
+def go_home1(pattern, now):
+    global junction, last_junction_time, stable_count
+    
+    if junction == 0:
+        # Require e.g. 1000 ms after switching to GO_HOME
+        if ticks_diff(now, last_junction_time) < 4000:
             return False
    
     if pattern in [(0,0,1,1) or (0,1,1,1)] and junction==0:
