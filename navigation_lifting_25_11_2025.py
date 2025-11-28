@@ -1,3 +1,4 @@
+
 # robot_full_final_with_colour_safe.py
 # Single-file robot program for MicroPython
 # Motors, Actuator
@@ -204,7 +205,7 @@ def colour_detect():
         return "none"
     colourpin.value(0)
     x = red = green = blue = 0
-    for _ in range(5):
+    for _ in range(0,20):
         try:
             x += tcs.light()
             r,g,b = tcs.rgb()
@@ -213,7 +214,7 @@ def colour_detect():
             colourpin.value(1)
             return "none"
         sleep(0.02)
-    x /= 5; red/=5; green/=5; blue/=5
+    x /= 20; red/=20; green/=20; blue/=20
     colourpin.value(1)
 
     if max(red,green,blue) == red and 700>x>500:
@@ -252,9 +253,17 @@ def pivot_right(duration=0.5, speed=80):
     right_motor.off()
 
 def drive_forward(duration, speed=50):
-    left_motor.Forward(speed)
-    right_motor.Forward(speed)
-    sleep(duration)
+    end_time = ticks_ms() + int(duration * 1000)
+    while ticks_diff(end_time, ticks_ms()) > 0:
+        left_motor.Forward(speed)
+        right_motor.Forward(speed)
+
+        # keep doing line following
+        pattern = (s1.value(), s2.value(), s3.value(), s4.value())
+        follow_line(pattern)
+
+        sleep(0.01)   # short pause so loop doesn't burn CPU
+
     left_motor.off()
     right_motor.off()
 
@@ -274,9 +283,9 @@ def follow_line(pattern):
     elif pattern in [(0,0,1,1),(0,0,1,0)]:
         left_motor.Forward(80); right_motor.Forward(5)
     elif pattern==(0,0,0,0):
-        left_motor.Forward(80); right_motor.Forward(80)
+        left_motor.Forward(100); right_motor.Forward(100)
     else:
-        left_motor.Forward(80); right_motor.Forward(80)
+        left_motor.Forward(100); right_motor.Forward(100)
 
 # ---------------------------
 # JUNCTION HANDLER
@@ -288,18 +297,18 @@ def forward_start(pattern, now):
 
     if pattern==(1,1,1,1) and junction==0:
         junction+=1; last_junction_time=now
-        drive_forward(0.5,20); return True, STATE_FOLLOW
+        drive_forward(0.3,20); return True, STATE_FOLLOW
     if pattern==(1,1,1,1) and junction==1:
         junction+=1; last_junction_time=now
-        drive_forward(0.6,80)
-        pivot_right(0.9,80); return True, STATE_FOLLOW
+        drive_forward(0.3,80)
+        pivot_right(0.9,60); return True, STATE_FOLLOW
     if pattern in [(0,0,1,1), (0,1,1,1)] and junction==2:
         junction+=1; last_junction_time=now
         drive_forward(0.5,80); return True, STATE_FOLLOW
     if pattern==(1,1,1,1) and junction==3:
         junction+=1; last_junction_time=now
-        drive_forward(0.6,80)
-        pivot_left(1,80); return True, STATE_FOLLOW
+        drive_forward(0.3,70)
+        pivot_left(1.2,60); return True, STATE_FOLLOW
     if pattern in [(1,1,0,0), (1,1,1,0)] and 4<=junction<11:
         junction+=1; last_junction_time=now
         return True, STATE_SPUR_CHECK
@@ -311,42 +320,52 @@ def forward_start(pattern, now):
 def handle_spur_entry():
     pattern = (s1.value(),s2.value(),s3.value(),s4.value())
     drive_forward(1,60)
-    pivot_left(1.1,80)
+    pivot_left(1,70)
+    left_motor.off()
+    right_motor.off()
+    sleep(3)
     follow_line(pattern)
-    drive_forward(1,10)
+    
     left_motor.off()
     right_motor.off()
 
 def lifting_ground_floor():
     left_motor.off(); right_motor.off()
-    actuator1.set(dir = 1, speed = 60); sleep(7); actuator1.stop()
-    drive_forward(9,50)
-    actuator1.set(dir = 1,speed = 60); sleep(1.8); actuator1.stop(); sleep(0.5)
-    colour = colour_detect(); sleep(1); print("Detected box colour:",colour)
-    drive_reverse(5.5,40)
-    actuator1.set(0,100); sleep(5); actuator1.stop()
-    pivot_left(1.1,80)
+    sleep(2)
+    actuator1.set(dir = 1, speed = 53); sleep(8.0); actuator1.stop()
+    drive_forward(1.3,30)
+    actuator1.set(dir = 1,speed = 65); sleep(1.4); actuator1.stop(); sleep(0.5)
+    colour = colour_detect(); sleep(6.7); print("Detected box colour:",colour)
+    drive_reverse(1,80)
+    actuator1.set(0,70); sleep(2); actuator1.stop()
+    pivot_left(1,60)
 
 # ---------------------------
 # GO HOME ROUTINE
 # ---------------------------
 def go_home1(pattern, now):
     global junction, last_junction_time, stable_count
+    
+    if junction == 0:
+        # Require e.g. 1000 ms after switching to GO_HOME
+        if ticks_diff(now, last_junction_time) < 2000:
+            return False
    
     if pattern in [(0,0,1,1) or (0,1,1,1)] and junction==0:
-        junction=1; last_junction_time=now
+        junction +=1; last_junction_time=now
         drive_forward(0.2, speed=30)
         left_motor.Forward(70); right_motor.Reverse(70); sleep(0.5)
-        left_motor.off(); right_motor.off(); stable_count=0; return True
-    if pattern==(1,1,0,0) and junction==1:
-        junction=2; last_junction_time=now
+        stable_count=0; return True
+    if pattern in [(1,1,0,0) or (1,1,1,0)] and junction==1:
+        junction +=1 ; last_junction_time=now
         left_motor.Forward(70); right_motor.Forward(70); sleep(0.5)
-        left_motor.off(); right_motor.off(); stable_count=0; return True
-    if pattern==(1,1,0,0) and junction==2:
+        stable_count=0; return True
+    if pattern in [(1,1,0,0) or (1,1,1,0)] and junction==2:
         drive_forward(0.8, speed=60)
-        junction=3; last_junction_time=now
-        left_motor.Reverse(70); right_motor.Forward(70); sleep(0.5)
-        turn_around(); stable_count=0; return True
+        junction +=1
+        drive_forward(1,40); pivot_right()
+        left_motor.Forward(70); right_motor.Forward(70); sleep(0.5)
+        turn_around(); sleep(10); motor.off(); stable_count=0; return True
     return False
 
 # ---------------------------
@@ -454,3 +473,4 @@ if __name__=="__main__":
         print("Interrupted by user. Stopping everything.")
     finally:
         left_motor.off(); right_motor.off(); actuator1.stop(); vl_sensor_stop()
+
