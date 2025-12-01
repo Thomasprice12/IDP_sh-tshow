@@ -286,10 +286,10 @@ def colour_detect():
 # ---------------------------
 # MOVEMENT HELPERS
 # ---------------------------
-def turn_around():
-    left_motor.Reverse(60)
-    right_motor.Forward(60)
-    sleep(1.9)
+def turn_around(duration, speed):
+    left_motor.Reverse(speed)
+    right_motor.Forward(speed)
+    sleep(duration)
     left_motor.off(); right_motor.off()
 
 def pivot_left(duration=0.5, speed=80):
@@ -378,30 +378,31 @@ def handle_spur_entry():
     left_motor.off(); right_motor.off()
 
 def lifting_ground_floor():
+    global colour
     left_motor.off(); right_motor.off()
     sleep(2)
-    actuator1.set(1,50); sleep(8.0); actuator1.stop()
-    drive_forward(1.3,30)
+    actuator1.set(1,50); sleep(8.1); actuator1.stop()
+    drive_forward(1.8,30)
     actuator1.set(1,65); sleep(1.4); actuator1.stop(); sleep(0.5)
     colourpin.value(0)
     colour_detect();
     colour=colour_detect(); print("Detected box colour:",colour)
     drive_reverse(1,80)
     actuator1.set(0,70); sleep(2); actuator1.stop()
-    turn_around()
+    turn_around(1, 60)
 
 # ---------------------------
 # GO HOME ROUTINE
 # ---------------------------
 def go_home(pattern, now):
     if colour == "blue":
-        return go_home_blue1(pattern, now)
+        go_home_blue1(pattern, now)
     elif colour == "red":
-        return go_home_red1(pattern, now)
-    elif colour == "green":
-        return go_home_green1(pattern, now)
+        go_home_red1(pattern, now)
+    elif colour == " green":
+        go_home_green1(pattern, now)
     elif colour == "yellow":
-        return go_home_yellow1(pattern, now)
+        go_home_yellow1(pattern, now)
 
     # If you later add the second set:
     elif colour == "blue2":
@@ -423,37 +424,43 @@ def go_home_blue1(pattern, now):
 
     # J0
     if pattern in [(0,1,1,1),(0,0,1,1)] and junction == 0:
-        left_motor.Forward(70); right_motor.Reverse(70); sleep(0.5)
+        drive_forward(0.5,80)
+        pivot_right(1,65)
         junction += 1
+        
         return True
-
     # J1
     if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 1:
-        left_motor.Forward(50); right_motor.Forward(50)
+        drive_forward(1,80)
         junction += 1
         return True
 
     # J2
     if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 2:
-        left_motor.Forward(50); right_motor.Forward(50)
+        drive_forward(1,80)
         junction += 1
         return True
 
     # J3
     if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 3:
-        left_motor.Forward(50); right_motor.Forward(50)
+        drive_forward(1,80)
         junction += 1
         return True
 
     # J4
-    if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 4:
-        left_motor.Forward(70); right_motor.Reverse(70); sleep(0.5)
+    if pattern == (1,1,1,1) and junction == 4:
+        drive_forward(0.5,80)
+        pivot_left(1,65)
+        sleep(0.5)
         junction += 1
-        left_motor.Forward(70); right_motor.Forward(70); sleep(0.5)
 
-        if pattern == (1,1,1,1):
-            left_motor.Forward(0); right_motor.Forward(0)
-            turn_around()
+    if pattern == (1,1,1,1) and junction == 5:
+        left_motor.off(); right_motor.off()
+        sleep(1)
+        actuator1.set(0,70); sleep(7); actuator1.stop()
+        drive_reverse(1.2,60)
+        turn_around(2.1,60)
+        
         return True
 
     return False
@@ -469,17 +476,18 @@ def go_home_red1(pattern, now):
 
     # J0
     if pattern in [(0,1,1,1),(0,0,1,1)] and junction == 0:
-        left_motor.Forward(70); right_motor.Forward(70); sleep(0.5)
+        drive_forward(1, 70); sleep(0.5)
         junction += 1
         return True
 
     # J1
-    if pattern == (1,1,1,1) and junction == 1:
-        left_motor.Forward(0); right_motor.Forward(0)
-        junction += 1
-        turn_around()
+    if pattern == (1,1,1,1):
+        left_motor.off(); right_motor.off()
+        sleep(1)
+        actuator1.set(0,70); sleep(7); actuator1.stop()
+        drive_reverse(1.2,60)
+        turn_around(2.1,60)
         return True
-
     return False
 
 
@@ -499,26 +507,31 @@ def go_home_green1(pattern, now):
 
     # J1
     if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 1:
-        left_motor.Forward(70); right_motor.Forward(70)
+        drive_forward(1, 70)
         junction += 1
         return True
 
     # J2
     if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 2:
-        left_motor.Forward(70); right_motor.Forward(70)
+        drive_forward(1, 70)
         junction += 1
         return True
 
     # J3
     if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 3:
-        left_motor.Reverse(70); right_motor.Forward(70); sleep(0.5)
+        drive_forward(0.5,80)
+        pivot_left(1,65)
+        sleep(0.5)
         junction += 1
 
-        left_motor.Forward(50); right_motor.Forward(50)
+      
 
-        if pattern == (1,1,1,1):
-            left_motor.Forward(50); right_motor.Forward(0)
-            turn_around()
+    if pattern == (1,1,1,1):
+        left_motor.off(); right_motor.off()
+        sleep(1)
+        actuator1.set(0,70); sleep(7); actuator1.stop()
+        drive_reverse(1.2,60)
+        turn_around(2.1,60)
         return True
 
     return False
@@ -527,6 +540,7 @@ def go_home_green1(pattern, now):
 
 def go_home_yellow1(pattern, now):
     global junction, last_junction_time, stable_count
+    print("returning to yellow base")
 
     if junction == 0:
         if ticks_diff(now, last_junction_time) < 2000:
@@ -534,21 +548,26 @@ def go_home_yellow1(pattern, now):
 
     # J0
     if pattern in [(0,1,1,1),(0,0,1,1)] and junction == 0:
-        left_motor.Forward(70); right_motor.Reverse(70); sleep(0.5)
+        drive_forward(0.5,80)
+        pivot_right(1,65)
         junction += 1
-        left_motor.Forward(50); right_motor.Forward(70)
+        
         return True
 
     # J1
     if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 1:
-        left_motor.Reverse(70); right_motor.Forward(70); sleep(0.5)
+        drive_forward(0.5,80)
+        pivot_left(1,65)
+        sleep(0.5)
         junction += 1
 
-        left_motor.Forward(50); right_motor.Forward(50)
 
-        if pattern == (1,1,1,1):
-            left_motor.Forward(50); right_motor.Forward(0)
-            turn_around()
+    if pattern == (1,1,1,1):
+        left_motor.off(); right_motor.off()
+        sleep(1)
+        actuator1.set(0,70); sleep(7); actuator1.stop()
+        drive_reverse(1.2,60)
+        turn_around(2.1,60)
         return True
 
     return False
@@ -692,4 +711,3 @@ if __name__=="__main__":
         right_motor.off()
         actuator1.stop()
         vl_sensor_stop()
-
