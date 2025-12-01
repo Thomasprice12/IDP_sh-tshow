@@ -23,6 +23,7 @@ LEFT_PWM_PIN  = 5
 RIGHT_DIR_PIN = 7
 RIGHT_PWM_PIN = 6
 
+colour = 'None'
 # Line sensors
 S1_PIN = 8   # left-most
 S2_PIN = 9
@@ -392,38 +393,183 @@ def lifting_ground_floor():
 # ---------------------------
 # GO HOME ROUTINE
 # ---------------------------
-def go_home1(pattern, now):
-    global junction, last_junction_time, stable_count, spurs_passed
+def go_home(pattern, now):
+    if colour == "blue":
+        return go_home_blue1(pattern, now)
+    elif colour == "red":
+        return go_home_red1(pattern, now)
+    elif colour == "green":
+        return go_home_green1(pattern, now)
+    elif colour == "yellow":
+        return go_home_yellow1(pattern, now)
 
-    # skip earlier spurs
-    if junction < spurs_passed:
-        if pattern in [(0,0,1,1),(0,1,1,1)]:
-            junction+=1
-            last_junction_time=now
-        return False
+    # If you later add the second set:
+    elif colour == "blue2":
+        return go_home_blue2(pattern, now)
+    elif colour == "red2":
+        return go_home_red2(pattern, now)
+    elif colour == "green2":
+        return go_home_green2(pattern, now)
+    elif colour == "yellow2":
+        return go_home_yellow2(pattern, now)
 
-    # REAL go-home logic
-    if pattern in [(0,0,1,1),(0,1,1,1)] and junction==0:
-        junction+=1; last_junction_time=now
-        drive_forward(0.2,30)
+    return False
+def go_home_blue1(pattern, now):
+    global junction, last_junction_time, stable_count
+
+    if junction == 0:
+        if ticks_diff(now, last_junction_time) < 2000:
+            return False
+
+    # J0
+    if pattern in [(0,1,1,1),(0,0,1,1)] and junction == 0:
         left_motor.Forward(70); right_motor.Reverse(70); sleep(0.5)
-        stable_count=0; return True
+        junction += 1
+        return True
 
-    if pattern in [(1,1,0,0),(1,1,1,0)] and junction==1:
-        junction+=1; last_junction_time=now
+    # J1
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 1:
+        left_motor.Forward(50); right_motor.Forward(50)
+        junction += 1
+        return True
+
+    # J2
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 2:
+        left_motor.Forward(50); right_motor.Forward(50)
+        junction += 1
+        return True
+
+    # J3
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 3:
+        left_motor.Forward(50); right_motor.Forward(50)
+        junction += 1
+        return True
+
+    # J4
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 4:
+        left_motor.Forward(70); right_motor.Reverse(70); sleep(0.5)
+        junction += 1
         left_motor.Forward(70); right_motor.Forward(70); sleep(0.5)
-        stable_count=0; return True
 
-    if pattern in [(1,1,0,0),(1,1,1,0)] and junction==2:
-        drive_forward(0.8,60)
-        junction+=1
-        drive_forward(1,40)
-        pivot_right()
+        if pattern == (1,1,1,1):
+            left_motor.Forward(0); right_motor.Forward(0)
+            turn_around()
+        return True
+
+    return False
+
+
+
+def go_home_red1(pattern, now):
+    global junction, last_junction_time, stable_count
+
+    if junction == 0:
+        if ticks_diff(now, last_junction_time) < 2000:
+            return False
+
+    # J0
+    if pattern in [(0,1,1,1),(0,0,1,1)] and junction == 0:
         left_motor.Forward(70); right_motor.Forward(70); sleep(0.5)
-        turn_around(); sleep(10)
-        left_motor.off(); right_motor.off()
-        stable_count=0; return True
+        junction += 1
+        return True
 
+    # J1
+    if pattern == (1,1,1,1) and junction == 1:
+        left_motor.Forward(0); right_motor.Forward(0)
+        junction += 1
+        turn_around()
+        return True
+
+    return False
+
+
+
+def go_home_green1(pattern, now):
+    global junction, last_junction_time, stable_count
+
+    if junction == 0:
+        if ticks_diff(now, last_junction_time) < 2000:
+            return False
+
+    # J0
+    if pattern in [(0,1,1,1),(0,0,1,1)] and junction == 0:
+        left_motor.Forward(70); right_motor.Reverse(70); sleep(0.5)
+        junction += 1
+        return True
+
+    # J1
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 1:
+        left_motor.Forward(70); right_motor.Forward(70)
+        junction += 1
+        return True
+
+    # J2
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 2:
+        left_motor.Forward(70); right_motor.Forward(70)
+        junction += 1
+        return True
+
+    # J3
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 3:
+        left_motor.Reverse(70); right_motor.Forward(70); sleep(0.5)
+        junction += 1
+
+        left_motor.Forward(50); right_motor.Forward(50)
+
+        if pattern == (1,1,1,1):
+            left_motor.Forward(50); right_motor.Forward(0)
+            turn_around()
+        return True
+
+    return False
+
+
+
+def go_home_yellow1(pattern, now):
+    global junction, last_junction_time, stable_count
+
+    if junction == 0:
+        if ticks_diff(now, last_junction_time) < 2000:
+            return False
+
+    # J0
+    if pattern in [(0,1,1,1),(0,0,1,1)] and junction == 0:
+        left_motor.Forward(70); right_motor.Reverse(70); sleep(0.5)
+        junction += 1
+        left_motor.Forward(50); right_motor.Forward(70)
+        return True
+
+    # J1
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 1:
+        left_motor.Reverse(70); right_motor.Forward(70); sleep(0.5)
+        junction += 1
+
+        left_motor.Forward(50); right_motor.Forward(50)
+
+        if pattern == (1,1,1,1):
+            left_motor.Forward(50); right_motor.Forward(0)
+            turn_around()
+        return True
+
+    return False
+
+
+
+# EMPTY TEMPLATES FOR YOU TO FILL
+def go_home_red2(pattern, now):
+    global junction, last_junction_time, stable_count
+    return False
+
+def go_home_blue2(pattern, now):
+    global junction, last_junction_time, stable_count
+    return False
+
+def go_home_yellow2(pattern, now):
+    global junction, last_junction_time, stable_count
+    return False
+
+def go_home_green2(pattern, now):
+    global junction, last_junction_time, stable_count
     return False
 
 # ---------------------------
@@ -512,7 +658,7 @@ def main_loop():
         if state==STATE_GO_HOME:
             follow_line(pattern)
             if stable_count>=REQUIRED_STABLE:
-                acted=go_home1(pattern,now)
+                acted=go_home(pattern,now)
                 if acted and junction==4:
                     print("Robot reached HOME junction. Stopping and switching to IDLE.")
                     left_motor.off(); right_motor.off()
