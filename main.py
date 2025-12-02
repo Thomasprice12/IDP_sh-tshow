@@ -499,7 +499,7 @@ def go_home_green1(pattern, now):
     global junction, last_junction_time, stable_count
 
     if junction == 0:
-        if ticks_diff(now, last_junction_time) < 4000:
+        if ticks_diff(now, last_junction_time) < 2000:
             return False
 
     # J0
@@ -576,18 +576,18 @@ def go_home_yellow1(pattern, now):
         return True
     if pattern == (1,1,1,1) and junction ==3:
         drive_forward(0.5,80)
-        pivot_right(1,65)
+        pivot_left(1,65)
         junction +=1
         return True
 
-    if pattern == (1,1,1,1) and junction ==4:
+    '''if pattern == (1,1,1,1) and junction ==4:
         drive_forward(0.5,80)
         pivot_left(1,65)
         junction = 4
         acted, next_state = forward_start(pattern, now)
         if acted and next_state is not None:
             return acted, next_state
-        return True
+        return True'''
     
     # After junction 4
     if 4 <= junction < 11 and pattern in [(1,1,0,0),(1,1,1,0)]:
