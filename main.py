@@ -464,7 +464,31 @@ def go_home_blue1(pattern, now):
         return True
 
     return False
+def forward_start_yellow(pattern, now):
+    global junction, last_junction_time
+    if ticks_diff(now, last_junction_time)<safe_gap_for_junction(junction):
+        return False, None
 
+    if pattern==(1,1,1,1) and junction==0:
+        junction+=1; last_junction_time=now
+        drive_forward(0.3,20);pivot_right(0.9,60) return True, STATE_FOLLOW
+
+    if pattern==(0,0,1,1) and junction==1:
+        junction+=2; last_junction_time=now
+        drive_forward(0.3,80)
+        return True, STATE_FOLLOW
+
+    if pattern==(1,1,1,1) and junction==3:
+        junction+=1; last_junction_time=now
+        drive_forward(0.6,70)
+        pivot_left(1.2,60); return True, STATE_FOLLOW
+
+    if pattern in [(1,1,0,0),(1,1,1,0)] and 4<=junction<11:
+        junction+=1; last_junction_time=now
+        return True, STATE_SPUR_CHECK
+
+
+    return False,None
 
 
 def go_home_red1(pattern, now):
