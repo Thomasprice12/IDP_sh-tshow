@@ -572,185 +572,24 @@ def go_home_yellow1(pattern, now):
 
     return False
 
-'''
+
+
 # EMPTY TEMPLATES FOR YOU TO FILL
 def go_home_red2(pattern, now):
     global junction, last_junction_time, stable_count
-
-    if junction == 0:
-        if ticks_diff(now, last_junction_time) < 2000:
-            return False
-
-    # J0 – LEFT TURN
-    if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 0:
-        drive_forward(0.5, 80)
-        pivot_left(1, 65)
-        junction += 1
-        return True
-
-    # J1 – FORWARD
-    if pattern in [(0,1,1,1),(0,0,1,1)] and junction == 1:
-        drive_forward(0.6, 80)
-        junction += 1
-        return True
-
-    # J2 – FORWARD
-    if pattern in [(0,0,1,1),(0,1,1,1)] and junction == 2:
-        drive_forward(0.6, 80)
-        junction += 1
-        return True
-
-    # J3 – FORWARD
-    if pattern in [(0,1,1,1),(0,0,1,1)] and junction == 3:
-        drive_forward(0.6, 80)
-        junction += 1
-        return True
-
-    # J4 – RIGHT TURN + POSSIBLE BASE
-    if pattern in [(0,0,1,1),(0,1,1,1)] and junction == 4:
-        drive_forward(0.5, 80)
-        pivot_right(1, 65)
-        junction += 1
-
-        if pattern == (1,1,1,1):
-            left_motor.off(); right_motor.off()
-            sleep(1)
-            turn_around(2.1, 60)
-
-        return True
-
     return False
-
 
 def go_home_blue2(pattern, now):
     global junction, last_junction_time, stable_count
-
-    if junction == 0:
-        if ticks_diff(now, last_junction_time) < 2000:
-            return False
-
-    # J0 – FORWARD UNTIL BASE
-    if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 0:
-        drive_forward(0.7, 80)
-        junction += 1
-
-        if pattern == (1,1,1,1):
-            left_motor.off(); right_motor.off()
-            sleep(1)
-            turn_around(2.1, 60)
-
-        return True
-
     return False
-
 
 def go_home_yellow2(pattern, now):
     global junction, last_junction_time, stable_count
-
-    if junction == 0:
-        if ticks_diff(now, last_junction_time) < 2000:
-            return False
-
-    # J0 – LEFT TURN
-    if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 0:
-        drive_forward(0.5, 80)
-        pivot_left(1, 65)
-        junction += 1
-        return True
-
-    # J1 – FORWARD
-    if pattern in [(0,1,1,1),(0,0,1,1)] and junction == 1:
-        drive_forward(0.6, 80)
-        junction += 1
-        return True
-
-    # J2 – FORWARD
-    if pattern in [(0,0,1,1),(0,1,1,1)] and junction == 2:
-        drive_forward(0.6, 80)
-        junction += 1
-        return True
-
-    # J3 – RIGHT TURN + POSSIBLE BASE
-    if pattern in [(0,1,1,1),(0,0,1,1)] and junction == 3:
-        drive_forward(0.5, 80)
-        pivot_right(1, 65)
-        junction += 1
-
-        if pattern == (1,1,1,1):
-            left_motor.off(); right_motor.off()
-            sleep(1)
-            turn_around(2.1, 60)
-
-        return True
-
     return False
-
 
 def go_home_green2(pattern, now):
     global junction, last_junction_time, stable_count
-
-    if junction == 0:
-        if ticks_diff(now, last_junction_time) < 2000:
-            return False
-
-    # J0 – LEFT TURN
-    if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 0:
-        drive_forward(0.5, 80)
-        pivot_left(1, 65)
-        junction += 1
-        return True
-
-    # J1 – RIGHT TURN + BASE DROP
-    if pattern in [(0,1,1,1),(0,0,1,1)] and junction == 1:
-        drive_forward(0.5, 80)
-        pivot_right(1, 65)
-        junction += 1
-
-        if pattern == (1,1,1,1):
-            left_motor.off(); right_motor.off()
-            sleep(1)
-            actuator1.set(0,70); sleep(7); actuator1.stop()
-            drive_reverse(1.2,60)
-            turn_around(2.1,60)
-
-        return True
-
     return False
-'''
-'''def forward_start2(pattern, now):
-    global junction, last_junction_time
-    if ticks_diff(now, last_junction_time)<safe_gap_for_junction(junction):
-        return False, None
-
-    if pattern==(1,1,1,1) and junction==0:
-        junction+=1; last_junction_time=now
-        drive_forward(0.3,20); return True, STATE_FOLLOW
-
-    if pattern==(1,1,1,1) and junction==1:
-        junction+=1; last_junction_time=now
-        drive_forward(0.3,80)
-        pivot_left(0.9,60); return True, STATE_FOLLOW
-
-    if pattern in [(0,0,1,1),(0,1,1,1)] and junction==2:
-        junction+=1; last_junction_time=now
-        drive_forward(0.5,80); return True, STATE_FOLLOW
-
-    if pattern==(1,1,1,1) and junction==3:
-        junction+=1; last_junction_time=now
-        drive_forward(0.6,70)
-        pivot_right(1.2,60); return True, STATE_FOLLOW
-
-    if pattern in [(1,1,0,0),(1,1,1,0)] and 4<=junction<11:
-        junction+=1; last_junction_time=now
-        return True, STATE_FOLLOW
-    if junction in [(0,1,1,0)]:
-        junction += 1
-        turn_around
-    if junction 12 <= junction<19 and pattern in [(1,1,1,0),(1,1,0,0)]:
-        
-
-    return False,None'''
-
 
 # ---------------------------
 # MAIN LOOP
@@ -792,7 +631,7 @@ def main_loop():
             consecutive=0
             required=3
 
-            for _ in range(15):
+            for _ in range(5):
                 d=vl_read_distance()
                 print("Distance read:",d)
                 if d!=-1 and d < DIST_THRESHOLD:
