@@ -272,13 +272,13 @@ def colour_detect():
     # ------------------------------
     # COLOUR CLASSIFICATION
     # ------------------------------
-    if max(red, green, blue) == red and 150 > x > 0:
+    if max(red, green, blue) == red and 599 > x > 0:
         return "red"
-    if max(red, green, blue) == blue and 150 > x > 0:
+    if max(red, green, blue) == blue and 400 > x > 0:
         return "green"
-    if max(red, green, blue) == blue:
+    if max(red, green, blue) == blue and x >=400:
         return "blue"
-    if x > 400:
+    if x > 600:
         return "yellow"
 
     return "none"
@@ -289,6 +289,11 @@ def colour_detect():
 def turn_around(duration, speed):
     left_motor.Reverse(speed)
     right_motor.Forward(speed)
+    sleep(duration)
+    left_motor.off(); right_motor.off()
+def turn_around2(duration, speed):
+    left_motor.Forward(speed)
+    right_motor.Reverse(speed)
     sleep(duration)
     left_motor.off(); right_motor.off()
 
@@ -342,12 +347,13 @@ def forward_start(pattern, now):
         return False, None
 
     if pattern==(1,1,1,1) and junction==0:
+        WalkingPin.value(1)
         junction+=1; last_junction_time=now
         drive_forward(0.3,20); return True, STATE_FOLLOW
 
     if pattern==(1,1,1,1) and junction==1:
         junction+=1; last_junction_time=now
-        drive_forward(0.3,80)
+        drive_forward(0.5,80)
         pivot_right(0.9,60); return True, STATE_FOLLOW
 
     if pattern in [(0,0,1,1),(0,1,1,1)] and junction==2:
@@ -389,7 +395,7 @@ def lifting_ground_floor():
     colour=colour_detect(); print("Detected box colour:",colour)
     drive_reverse(1,80)
     actuator1.set(0,70); sleep(2); actuator1.stop()
-    turn_around(1, 60)
+    turn_around(1.5, 60)
 
 # ---------------------------
 # GO HOME ROUTINE
@@ -399,7 +405,7 @@ def go_home(pattern, now):
         go_home_blue1(pattern, now)
     elif colour == "red":
         go_home_red1(pattern, now)
-    elif colour == " green":
+    elif colour == "green":
         go_home_green1(pattern, now)
     elif colour == "yellow":
         go_home_yellow1(pattern, now)
@@ -417,6 +423,8 @@ def go_home(pattern, now):
     return False
 def go_home_blue1(pattern, now):
     global junction, last_junction_time, stable_count
+    print("returning to yellow base")
+
 
     if junction == 0:
         if ticks_diff(now, last_junction_time) < 2000:
@@ -431,13 +439,11 @@ def go_home_blue1(pattern, now):
         return True
     # J1
     if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 1:
-        drive_forward(1,80)
         junction += 1
         return True
 
     # J2
     if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 2:
-        drive_forward(1,80)
         junction += 1
         return True
 
@@ -453,14 +459,42 @@ def go_home_blue1(pattern, now):
         pivot_left(1,65)
         sleep(0.5)
         junction += 1
+        return True
 
     if pattern == (1,1,1,1) and junction == 5:
+        junction +=1
         left_motor.off(); right_motor.off()
         sleep(1)
         actuator1.set(0,70); sleep(7); actuator1.stop()
         drive_reverse(1.2,60)
         turn_around(2.1,60)
+        return True
+    
+
+
+    if pattern == (1,1,1,1) and junction == 6:
+        drive_forward(0.5,80)
+        pivot_right(1,65)
+        return True
+
+
+
+    if pattern in [(0,0,1,1),(0,1,1,1)] and junction == 7:
+        junction +=1
+        drive_forward(0.5,80)
+        return True
+    
+    if pattern in [(0,0,1,1),(0,1,1,1)] and junction == 8:
+        junction +=1
+        drive_forward(0.5,80)
+        pivot_right(1,65)
+        return True
+    
+    if pattern == (1,1,1,1) and junction == 9:
         
+     
+        left_motor.off(); right_motor.off()
+        WalkingPin.value(0)
         return True
 
     return False
@@ -473,6 +507,7 @@ def go_home_blue1(pattern, now):
 def go_home_red1(pattern, now):
     global junction, last_junction_time, stable_count
 
+
     if junction == 0:
         if ticks_diff(now, last_junction_time) < 2000:
             return False
@@ -484,59 +519,109 @@ def go_home_red1(pattern, now):
         return True
 
     # J1
-    if pattern == (1,1,1,1):
+    if pattern == (1,1,1,1) and junction == 1:
+        junction +=1
         left_motor.off(); right_motor.off()
         sleep(1)
         actuator1.set(0,70); sleep(7); actuator1.stop()
         drive_reverse(1.2,60)
-        turn_around(2.1,60)
+        turn_around2(2.1,60)
         return True
+    
+    if pattern in [(1,1,0,0),(1,1,1,0)] and junction == 2:
+        junction +=1
+        drive_forward(0.5,80)
+        pivot_left(1,65)
+        return True
+    
+    if pattern in [(1,1,0,0),(1,1,1,0)] and junction == 3:
+        junction +=1
+        drive_forward(0.5,80)
+        return True
+    
+    if pattern in [(1,1,0,0),(1,1,1,0)] and junction == 4:
+        junction +=1
+        drive_forward(0.5,80)
+        pivot_left(1,65)
+        return True
+    if pattern == (1,1,1,1) and junction == 5:
+        
+       
+        left_motor.off(); right_motor.off()
+        WalkingPin.value(0)
+        return True
+    
     return False
 
 
 
 def go_home_green1(pattern, now):
     global junction, last_junction_time, stable_count
+    print("returning to green base")
+
 
     if junction == 0:
-        if ticks_diff(now, last_junction_time) < 2000:
+        if ticks_diff(now, last_junction_time) < 1300:
             return False
 
     # J0
- # J0
     if pattern in [(0,1,1,1),(0,0,1,1)] and junction == 0:
-        drive_forward(0.5,80)
+        drive_forward(0.7,80)
         pivot_right(1,65)
         junction += 1
+        
+        return True
 
     # J1
     if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 1:
-        drive_forward(1, 70)
         junction += 1
-        return True
-
-    # J2
-    if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 2:
-        drive_forward(1, 70)
-        junction += 1
+        drive_forward(0.5,80)
         return True
 
     # J3
+    if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 2:
+        drive_forward(0.5,80)
+        sleep(0.5)
+        junction += 1
+        return True
+    
     if pattern in [(1,1,1,0),(1,1,0,0)] and junction == 3:
         drive_forward(0.5,80)
         pivot_left(1,65)
         sleep(0.5)
         junction += 1
+        return True
 
-      
 
-    if pattern == (1,1,1,1):
+    if pattern == (1,1,1,1) and junction == 4:
+        junction +=1
         left_motor.off(); right_motor.off()
         sleep(1)
         actuator1.set(0,70); sleep(7); actuator1.stop()
         drive_reverse(1.2,60)
         turn_around(2.1,60)
         return True
+    
+    if pattern == (1,1,1,1) and junction == 5:
+        junction +=1
+        drive_forward(0.7,80)
+        pivot_right(1,65)
+        return True
+    
+    
+    if pattern in [(0,0,1,1),(0,1,1,1)] and junction == 6:
+        junction +=1
+        drive_forward(0.7,80)
+        pivot_right(1,65)
+        return True
+    
+    if pattern == (1,1,1,1) and junction == 7:
+        
+        
+        left_motor.off(); right_motor.off()
+        WalkingPin.value(0)
+        return True
+
 
     return False
 
@@ -546,13 +631,14 @@ def go_home_yellow1(pattern, now):
     global junction, last_junction_time, stable_count
     print("returning to yellow base")
 
+
     if junction == 0:
         if ticks_diff(now, last_junction_time) < 2000:
             return False
 
     # J0
     if pattern in [(0,1,1,1),(0,0,1,1)] and junction == 0:
-        drive_forward(0.5,80)
+        drive_forward(0.7,80)
         pivot_right(1,65)
         junction += 1
         
@@ -564,7 +650,7 @@ def go_home_yellow1(pattern, now):
         pivot_left(1,65)
         sleep(0.5)
         junction += 1
-
+        return True
 
     if pattern == (1,1,1,1) and junction == 2:
         left_motor.off(); right_motor.off()
@@ -580,20 +666,21 @@ def go_home_yellow1(pattern, now):
         junction +=1
         return True
 
-    '''if pattern == (1,1,1,1) and junction ==4:
+    if pattern in [(0,1,1,1),(0,0,1,1)] and junction ==4:
         drive_forward(0.5,80)
         pivot_left(1,65)
-        junction = 4
-        acted, next_state = forward_start(pattern, now)
-        if acted and next_state is not None:
-            return acted, next_state
-        return True'''
+        junction +=1
+        
+    if pattern == (1,1,1,1) and junction == 5:
+        drive_forward(0.3,80)
+        left_motor.off(); right_motor.off()
+        WalkingPin.value(0)
+        return True
+    return False
+
     
     # After junction 4
-    if 4 <= junction < 11 and pattern in [(1,1,0,0),(1,1,1,0)]:
-        junction += 1
-        last_junction_time = now
-        return True, STATE_SPUR_CHECK
+
 
 
 
@@ -649,7 +736,7 @@ def main_loop():
         if state==STATE_SPUR_CHECK:
             print("SPUR DETECTED — stopping immediately.")
             left_motor.off(); right_motor.off()
-            WalkingPin.value(0)
+            
 
             vl_sensor_start()
             sleep(0.15)
