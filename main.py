@@ -1,12 +1,3 @@
-# robot_full_final_with_colour_safe.py
-# Single-file robot program for MicroPython
-# Motors, Actuator
-# VL53L0X distance sensor (activated at spurs)
-# TCS3472 colour sensor (reads colour before lifting)
-# Line following with 4 sensors
-# Junction handling
-# Spur handling and lift sequence
-# GO_HOME sequence integrated in the state machine
 
 from machine import Pin, PWM, I2C
 from utime import sleep, ticks_ms, ticks_diff
